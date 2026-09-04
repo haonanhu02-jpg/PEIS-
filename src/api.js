@@ -29,6 +29,28 @@ function curTeam(req) {
   return req.teamId || null;
 }
 
+function visiblePlan(req, plan, scope) {
+  return plan.teamId === req.teamId && (scope.includes(plan.orgUnitId) || plan.owner === req.user.id);
+}
+
+async function authorizePlanUpdate(req, res, plan) {
+  const perms = req.permissions || [];
+  const fullEdit = perms.includes('*') || perms.includes('plan.edit');
+  if (fullEdit) {
+    const scope = await orgScope(req.user, req.teamId);
+    if (!visiblePlan(req, plan, scope)) { fail(res, '无权修改此计划', 403); return false; }
+  } else {
+    if (!perms.includes('plan.edit_self') || plan.owner !== req.user.id) {
+      fail(res, '无权修改此计划', 403); return false;
+    }
+    const fields = req.path.endsWith('/progress') ? ['progress', 'status', 'note'] : ['progress', 'status'];
+    if (Object.keys(body(req)).some(key => !fields.includes(key))) {
+      fail(res, '只能更新本人计划的进度和状态', 403); return false;
+    }
+  }
+  return true;
+}
+
 async function validateTeamWrite(req, res, next) {
   const b = body(req);
   if (b.teamId !== undefined && b.teamId !== req.teamId) return fail(res, '不能跨团队写入', 403);
@@ -129,7 +151,7 @@ router.post('/teams/switch', auth, (req, res) => {
 router.get('/dashboard', auth, async (req, res) => {
   const teamId = curTeam(req);
   const scope = await orgScope(req.user, teamId);
-  const plans = (await all('plans')).filter((p) => (teamId ? p.teamId === teamId : true) && scope.includes(p.orgUnitId));
+  const plans = (await all('plans')).filter((p) => visiblePlan(req, p, scope));
   await refreshAllLights(teamId);
   const lights = { green: 0, yellow: 0, red: 0 };
   let progressSum = 0, completed = 0;
@@ -140,7 +162,7 @@ router.get('/dashboard', auth, async (req, res) => {
   }
   const total = plans.length || 1;
   const ranking = (await computeRanking('owner', teamId)).slice(0, 8);
-  const warnings = (await all('warnings')).filter((w) => (teamId ? w.teamId === teamId : true) && scope.includes(w.orgUnitId)).slice(0, 20);
+  const warnings = (await all('warnings')).filter((w) => visiblePlan(req, w, scope)).slice(0, 20);
   ok(res, {
     total,
     completed,
@@ -225,7 +247,7 @@ router.put('/campaigns/:id', auth, validateTeamWrite, requirePerm('strategy.edit
 router.get('/plans', auth, async (req, res) => {
   const teamId = curTeam(req);
   const scope = await orgScope(req.user, teamId);
-  let plans = (await all('plans')).filter((p) => (teamId ? p.teamId === teamId : true) && scope.includes(p.orgUnitId));
+  let plans = (await all('plans')).filter((p) => visiblePlan(req, p, scope));
   // 过滤
   const { level, status, campaignId, light, mine } = req.query;
   if (level) plans = plans.filter((p) => p.level === level);
@@ -265,8 +287,7 @@ router.put('/plans/:id', auth, validateTeamWrite, async (req, res) => {
   // 本人只能改自己的进度（plan.edit_self），有 plan.edit 可改全部
   const plan = await findOne('plans', (p) => p.id === req.params.id);
   if (!plan) return fail(res, '未找到', 404);
-  const canEditAll = /超级管理员|admin|CEO|计划效率部|产业1号位/i.test(req.user.role || '');
-  if (!canEditAll && plan.owner !== req.user.id) return fail(res, '只能更新本人负责的计划', 403);
+  if (!await authorizePlanUpdate(req, res, plan)) return;
   const rec = await update('plans', req.params.id, b);
   await refreshAllLights(plan.teamId);
   // 自动预警推送（更新后红黄灯变化）
@@ -280,8 +301,7 @@ router.post('/plans/:id/progress', auth, validateTeamWrite, async (req, res) => 
   const b = body(req);
   const plan = await findOne('plans', (p) => p.id === req.params.id);
   if (!plan) return fail(res, '未找到', 404);
-  const canEditAll = /超级管理员|admin|CEO|计划效率部|产业1号位/i.test(req.user.role || '');
-  if (!canEditAll && plan.owner !== req.user.id) return fail(res, '只能更新本人负责的计划', 403);
+  if (!await authorizePlanUpdate(req, res, plan)) return;
   const updated = await update('plans', req.params.id, {
     progress: Number(b.progress),
     status: b.status || (Number(b.progress) >= 100 ? '已完成' : plan.status),
@@ -340,7 +360,7 @@ router.post('/cycles/:cadence/run', auth, requirePerm('plan.edit'), async (req, 
 router.get('/rewards', auth, requirePerm('reward.view'), async (req, res) => {
   const teamId = curTeam(req);
   const scope = await orgScope(req.user, teamId);
-  const plans = (await all('plans')).filter((p) => (teamId ? p.teamId === teamId : true) && scope.includes(p.orgUnitId));
+  const plans = (await all('plans')).filter((p) => visiblePlan(req, p, scope));
   const planIds = new Set(plans.map((p) => p.id));
   ok(res, (await all('rewards')).filter((r) => planIds.has(r.planId)));
 });
@@ -393,7 +413,7 @@ router.get('/warnings', auth, async (req, res) => {
   const teamId = curTeam(req);
   const scope = await orgScope(req.user, teamId);
   await refreshAllLights(teamId);
-  ok(res, (await all('warnings')).filter((w) => (teamId ? w.teamId === teamId : true) && scope.includes(w.orgUnitId)));
+  ok(res, (await all('warnings')).filter((w) => visiblePlan(req, w, scope)));
 });
 router.get('/push-logs', auth, async (req, res) => {
   const teamId = curTeam(req);
@@ -405,7 +425,7 @@ router.get('/board', auth, async (req, res) => {
   const teamId = curTeam(req);
   const scope = await orgScope(req.user, teamId);
   await refreshAllLights(teamId);
-  const plans = (await all('plans')).filter((p) => (teamId ? p.teamId === teamId : true) && scope.includes(p.orgUnitId));
+  const plans = (await all('plans')).filter((p) => visiblePlan(req, p, scope));
   ok(res, {
     plans,
     campaigns: (await all('campaigns')).filter((c) => (teamId ? c.teamId === teamId : true) && scope.includes(c.orgUnitId)),
