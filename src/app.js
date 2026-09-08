@@ -4,8 +4,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config } from './config.js';
 import { init } from './db.js';
-import { seedIfEmpty } from './seed.js';
-import { refreshAllLights, pushCycleSummary } from './engine.js';
+import { seedIfEmpty, migrateScreenshotContent } from './seed.js';
+import { refreshAllLights, pushCycleSummary, runDueReminders } from './engine.js';
 import { all } from './db.js';
 import apiRouter from './api.js';
 
@@ -46,6 +46,8 @@ app.use((err, req, res, next) => {
 // ===== 周期调度（日/周/月，模拟真实 cron） =====
 function schedule() {
   let lastDaily = '';
+  let lastWeekly = '';
+  let lastBiweekly = '';
   setInterval(async () => {
     const now = new Date();
     const key = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
@@ -55,10 +57,16 @@ function schedule() {
       // 遍历所有团队分别推送（团队隔离）
       for (const team of await all('teams')) {
         await pushCycleSummary('daily', team.id);
+        await runDueReminders(now, team.id);
+        if (now.getDay() === 1 && key !== lastWeekly) await pushCycleSummary('weekly', team.id);
+        const epochWeek = Math.floor((now.getTime() / 86400000 + 4) / 7);
+        if (now.getDay() === 1 && epochWeek % 2 === 0 && key !== lastBiweekly) await pushCycleSummary('biweekly', team.id);
       }
+      if (now.getDay() === 1) lastWeekly = key;
+      if (now.getDay() === 1) lastBiweekly = key;
     }
   }, 60 * 1000);
-  console.log('[调度] 每日 09:00 到期节点反馈已启用');
+  console.log('[调度] 每日 09:00 节点提醒、每周一汇总、隔周周一汇总已启用');
 }
 
 // ===== 启动 =====
@@ -66,6 +74,7 @@ async function start() {
   // 1. 建表 + 初始化种子数据（MySQL）
   await init();
   await seedIfEmpty();
+  await migrateScreenshotContent();
   // 2. 启动时刷新一次红黄灯
   await refreshAllLights();
   // 3. 开启周期调度

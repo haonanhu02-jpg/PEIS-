@@ -7,7 +7,7 @@
   let me = null;
   let teams = [];
   let activeTeamId = localStorage.getItem('peis_team') || '';
-  let cache = { orgUnits: [], levels: [] };
+  let cache = { orgUnits: [], levels: [], campaigns: [] };
   const routePerms = { strategies: 'strategy.view', campaigns: 'strategy.view', meetings: 'meeting.view', rewards: 'reward.view', org: 'org.view' };
   function allowed(perm) { return !perm || me?.permissions?.includes('*') || me?.permissions?.includes(perm); }
 
@@ -42,7 +42,7 @@
     app.innerHTML = `
       <div class="login-wrap">
         <div class="login-card">
-          <div class="login-logo">
+          <div class="login-logo"><img class="company-logo" src="/assets/wansheng-logo.png" alt="万盛股份" />
             <h1>PEIS <span class="peis">项目管理系统</span></h1>
             <div class="sub">万盛股份 · 计划效率 Implementation System</div>
           </div>
@@ -104,9 +104,9 @@
     const nav = [
       { group: '驾驶舱', items: [{ id: 'dashboard', ico: '📊', label: '数据看板' }] },
       { group: '目标制定', items: [
-        { id: 'strategies', ico: '🎯', label: '战略规划' },
-        { id: 'campaigns', ico: '⚔️', label: '战略解码·战役' },
-        { id: 'plans', ico: '📋', label: '战役计划' },
+        { id: 'strategies', ico: '🎯', label: '集团战略规划' },
+        { id: 'campaigns', ico: '⚔️', label: '战略解码-必胜战役' },
+        { id: 'plans', ico: '📋', label: '分解战役-行动计划' },
         { id: 'board', ico: '🗂️', label: '看板视图' },
       ] },
       { group: '会议与周期', items: [
@@ -125,7 +125,7 @@
     app.innerHTML = `
       <div class="layout">
         <aside class="sidebar">
-          <div class="sidebar-brand"><span class="dot"></span>PEIS <span class="peis">管理平台</span></div>
+          <div class="sidebar-brand"><img src="/assets/wansheng-logo.png" alt="万盛股份" /><span>PEIS 管理平台</span></div>
           ${teams.length > 1 ? `<div class="team-switch">
             <label>当前团队</label>
             <select id="team-select" onchange="window.__switchTeam(this.value)">${teams.map((t) => `<option value="${t.id}" ${t.id === activeTeamId ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select>
@@ -225,12 +225,12 @@
   }
 
   async function pageStrategies() {
-    setPage('战略规划 · 定方向', '商业模式 / 核心能力 / 战略取舍');
+    setPage('集团战略规划 · 定方向', '商业模式 / 核心能力 / 战略取舍');
     activeNav('strategies');
     const list = await req('GET', '/strategies');
     const body = document.getElementById('page-body');
     body.innerHTML = `
-      <div class="section-title">战略规划 <span class="line"></span> <button class="btn p sm" onclick="window.__newStrategy()">+ 新建战略</button></div>
+      <div class="section-title">集团战略规划 <span class="line"></span> <button class="btn p sm" onclick="window.__newStrategy()">+ 新建战略</button></div>
       <div class="cards">
         ${list.map((s) => `<div class="card">
           <h3 style="font-size:15px;color:var(--gray-900);font-weight:600;">${esc(s.title)}</h3>
@@ -272,7 +272,7 @@
   }
 
   async function pageCampaigns() {
-    setPage('战略解码 · 战役', '战役 / 班子 / 计划');
+    setPage('战略解码-必胜战役', '必胜战役 / 责任人');
     activeNav('campaigns');
     const list = await req('GET', '/campaigns');
     const body = document.getElementById('page-body');
@@ -282,7 +282,7 @@
         ${list.map((c) => `<div class="card">
           <h3 style="font-size:15px;color:var(--gray-900);font-weight:600;">${esc(c.name)}</h3>
           <div style="margin-top:10px;font-size:13px;color:var(--gray-700);line-height:1.9;">
-            <div><b>主将：</b>${esc(userName(c.chief))}</div>
+            <div><b>责任人：</b>${esc(c.chiefName || userName(c.chief))}</div>
             <div><b>班子：</b>${esc(userName(c.commander))}</div>
             <div><b>周期：</b>${esc(c.period)}</div>
             <div><b>说明：</b>${esc(c.desc)}</div>
@@ -320,91 +320,98 @@
   }
 
   async function pagePlans() {
-    setPage('战役计划 · PEIS', '分解策略 / 资源分级 / 组织保障');
+    setPage('分解战役-行动计划', '行动计划 / 衡量指标 / 里程碑事件');
     activeNav('plans');
-    const plans = await req('GET', '/plans');
+    const [plans, campaigns] = await Promise.all([req('GET', '/plans'), req('GET', '/campaign-options')]);
+    cache.campaigns = campaigns;
     const body = document.getElementById('page-body');
     body.innerHTML = `
       <div class="filters">
-        <select id="fl-level" onchange="window.__filterPlans()"><option value="">全部级别</option>${['里程碑','1级','2级','3级','4级'].map((l) => `<option>${l}</option>`).join('')}</select>
+        <select id="fl-campaign" onchange="window.__filterPlans()"><option value="">全部必胜战役</option>${campaigns.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select>
         <select id="fl-status" onchange="window.__filterPlans()"><option value="">全部状态</option><option>执行中</option><option>已完成</option></select>
         <select id="fl-mine" onchange="window.__filterPlans()"><option value="">全部负责人</option><option value="1">我的计划</option></select>
-        <button class="btn p sm" style="margin-left:auto;" onclick="window.__newPlan()">+ 新建计划</button>
+        <button class="btn p sm" style="margin-left:auto;" onclick="window.__newPlan()">+ 新建行动计划</button>
       </div>
-      <table><thead><tr><th>计划名称</th><th>级别/分值</th><th>所属组织</th><th>负责人</th><th>进度</th><th>截止</th><th>红黄灯</th><th>操作</th></tr></thead>
-      <tbody id="plan-tbody">${renderPlanRows(plans)}</tbody></table>`;
+      <div class="table-scroll"><table class="wide-table"><thead><tr><th>必胜战役</th><th>分解战役</th><th>行动计划</th><th>衡量指标</th><th>里程碑事件</th><th>完成时间</th><th>负责人</th><th>完成度</th><th>状态</th><th>操作</th></tr></thead>
+      <tbody id="plan-tbody">${renderPlanRows(plans)}</tbody></table></div>`;
     window.__filterPlans = async () => {
-      const level = document.getElementById('fl-level').value;
+      const campaignId = document.getElementById('fl-campaign').value;
       const status = document.getElementById('fl-status').value;
       const mine = document.getElementById('fl-mine').value;
       const qs = new URLSearchParams();
-      if (level) qs.set('level', level);
+      if (campaignId) qs.set('campaignId', campaignId);
       if (status) qs.set('status', status);
       if (mine) qs.set('mine', mine);
-      const list = await req('GET', '/plans?' + qs.toString());
-      document.getElementById('plan-tbody').innerHTML = renderPlanRows(list);
+      document.getElementById('plan-tbody').innerHTML = renderPlanRows(await req('GET', '/plans?' + qs));
     };
     window.__newPlan = () => showPlanModal();
     window.__updProgress = (id) => showProgressModal(id);
   }
 
+  function campaignName(p) {
+    return p.campaignName || cache.campaigns.find(c => c.id === p.campaignId)?.name || '-';
+  }
+
   function renderPlanRows(plans) {
-    if (!plans.length) return '<tr><td colspan="8" class="empty">暂无计划</td></tr>';
+    if (!plans.length) return '<tr><td colspan="10" class="empty">暂无行动计划</td></tr>';
     return plans.map((p) => `<tr>
-      <td style="font-weight:600;">${esc(p.name)}</td>
-      <td><span class="tag blue">${esc(p.level)}·${levelScore(p.level)}分</span></td>
-      <td>${esc(unitName(p.orgUnitId))}</td>
-      <td>${esc(userName(p.owner))}</td>
-      <td>${progressBar(p)}</td>
-      <td style="font-size:12px;">${esc(p.due || '-')}</td>
-      <td>${lightTag(p)}</td>
+      <td style="font-weight:600;min-width:180px;">${esc(campaignName(p))}</td>
+      <td style="min-width:145px;">${esc(p.subCampaign || p.name)}</td>
+      <td style="min-width:230px;">${esc(p.name)}</td>
+      <td style="min-width:200px;">${esc(p.metric || '-')}</td>
+      <td style="min-width:220px;">${esc(p.milestone || '-')}</td>
+      <td>${esc(p.due || '-')}</td><td>${esc(p.ownerName || userName(p.owner))}</td>
+      <td>${progressBar(p)}</td><td>${lightTag(p)}</td>
       <td><button class="btn g sm" onclick="window.__updProgress('${p.id}')">更新进度</button></td>
     </tr>`).join('');
   }
 
   function showPlanModal() {
-    showModal('新建战役计划', `
+    showModal('新建分解战役-行动计划', `
       <div class="form">
-        <div class="full"><label>计划名称</label><input id="f-name" /></div>
-        <div><label>级别</label><select id="f-level">${['里程碑','1级','2级','3级','4级'].map((l) => `<option>${l}</option>`).join('')}</select></div>
-        <div><label>所属组织</label><select id="f-org">${cache.orgUnits.map((o) => `<option value="${o.id}">${esc(o.name)}</option>`).join('')}</select></div>
-        <div><label>负责人</label><select id="f-owner">${userOptions()}</select></div>
-        <div><label>截止日期</label><input id="f-due" type="date" /></div>
-        <div class="full"><label>分类</label><input id="f-cat" placeholder="如：经营提效 / 营销一体化" /></div>
+        <div class="full"><label>关联必胜战役</label><select id="f-campaign">${cache.campaigns.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></div>
+        <div class="full"><label>分解战役</label><input id="f-sub" /></div>
+        <div class="full"><label>行动计划</label><textarea id="f-name" rows="2"></textarea></div>
+        <div class="full"><label>衡量指标</label><textarea id="f-metric" rows="2"></textarea></div>
+        <div class="full"><label>里程碑事件</label><textarea id="f-milestone" rows="2"></textarea></div>
+        <div><label>完成时间</label><input id="f-due" type="date" /></div>
+        <div><label>负责人</label><input id="f-owner-name" placeholder="姓名" /></div>
+        <div><label>进度收集人</label><input id="f-collector" placeholder="姓名" /></div>
+        <div><label>分解战役负责人</label><input id="f-sub-owner" placeholder="姓名" /></div>
         <div class="actions"><button class="btn p" onclick="window.__savePlan()">保存</button><button class="btn g" onclick="window.__closeModal()">取消</button></div>
       </div>`);
     window.__savePlan = async () => {
       try {
-        const level = document.getElementById('f-level').value;
+        const campaignId = document.getElementById('f-campaign').value;
+        const campaign = cache.campaigns.find(c => c.id === campaignId);
         await req('POST', '/plans', {
-          name: document.getElementById('f-name').value,
-          level,
-          score: levelScore(level),
-          orgUnitId: document.getElementById('f-org').value,
-          owner: document.getElementById('f-owner').value,
-          due: document.getElementById('f-due').value,
-          category: document.getElementById('f-cat').value,
+          campaignId, campaignName: campaign?.name || '', subCampaign: document.getElementById('f-sub').value,
+          name: document.getElementById('f-name').value, metric: document.getElementById('f-metric').value,
+          milestone: document.getElementById('f-milestone').value, due: document.getElementById('f-due').value,
+          ownerName: document.getElementById('f-owner-name').value, collector: document.getElementById('f-collector').value,
+          subCampaignOwner: document.getElementById('f-sub-owner').value, orgUnitId: campaign?.orgUnitId
         });
-        closeModal(); toast('计划已创建'); pagePlans();
+        closeModal(); toast('行动计划已创建'); pagePlans();
       } catch (e) { toast(e.message, 'red'); }
     };
   }
 
   function showProgressModal(id) {
-    showModal('更新计划进度', `
+    showModal('战役计划的进度更新', `
       <div class="form">
-        <div class="full"><label>完成进度（%）</label><input id="f-prog" type="number" min="0" max="100" value="0" /></div>
-        <div class="full"><label>备注</label><textarea id="f-note" rows="3" placeholder="进度说明 / 风险说明"></textarea></div>
+        <div class="full"><label>关键进展</label><textarea id="f-key" rows="3"></textarea></div>
+        <div class="full"><label>完成度（%）</label><input id="f-prog" type="number" min="0" max="100" value="0" /></div>
+        <div class="full"><label>差异原因</label><textarea id="f-variance" rows="3"></textarea></div>
+        <div class="full"><label>解决方案建议/决策点</label><textarea id="f-solution" rows="3"></textarea></div>
         <div class="actions"><button class="btn p" onclick="window.__saveProgress('${id}')">提交</button><button class="btn g" onclick="window.__closeModal()">取消</button></div>
       </div>`);
     window.__saveProgress = async (id) => {
       try {
         const r = await req('POST', `/plans/${id}/progress`, {
-          progress: Number(document.getElementById('f-prog').value),
-          note: document.getElementById('f-note').value,
+          progress: Number(document.getElementById('f-prog').value), keyProgress: document.getElementById('f-key').value,
+          varianceReason: document.getElementById('f-variance').value, solutionDecision: document.getElementById('f-solution').value
         });
-        closeModal(); toast(`进度已更新，红黄灯：${r.light === 'green' ? '绿灯' : r.light === 'yellow' ? '黄灯预警' : '红灯警示'}`);
-        pagePlans();
+        closeModal(); toast(`进度已更新，红黄灯：${r.light === 'green' ? '绿灯' : r.light === 'yellow' ? '黄灯预警' : '红灯警示'}`); pagePlans();
       } catch (e) { toast(e.message, 'red'); }
     };
   }
@@ -449,9 +456,9 @@
   }
 
   async function pageCycles() {
-    setPage('运行节奏', '日 / 周 / 月 / 季 / 年');
+    setPage('运行节奏', '日 / 周 / 双周 / 关键节点');
     activeNav('cycles');
-    const list = await req('GET', '/cycles');
+    const [list, pushLogs] = await Promise.all([req('GET', '/cycles'), req('GET', '/push-logs')]);
     const body = document.getElementById('page-body');
     body.innerHTML = `
       <div class="cards">
@@ -460,30 +467,53 @@
           <div style="margin-top:8px;font-size:13px;color:var(--gray-700);">${esc(c.content)}</div>
           <button class="btn g sm" style="margin-top:12px;" onclick="window.__runCycle('${c.cadence}')">触发${esc(c.period)}推送</button>
         </div>`).join('')}
-      </div>`;
+      </div>
+      <div class="filters" style="margin-top:18px;"><button class="btn p sm" onclick="window.__runCycle('reminders')">检查提前一个月/到期当天节点</button><button class="btn g sm" onclick="window.__runCycle('weekly')">触发周推送</button><button class="btn g sm" onclick="window.__runCycle('biweekly')">触发双周推送</button></div>
+      <div class="section-title">最近推送 <span class="line"></span></div>
+      <table><thead><tr><th>时间</th><th>渠道</th><th>标题</th><th>内容</th><th>接收对象</th><th>状态</th></tr></thead><tbody>${pushLogs.map(x => `<tr><td>${esc((x.at || '').slice(0,16).replace('T',' '))}</td><td>${esc(x.channel)}</td><td>${esc(x.title)}</td><td>${esc(x.content)}</td><td>${esc((x.toUserIds || []).join('、'))}</td><td>${esc(x.status || '-')}</td></tr>`).join('') || '<tr><td colspan="6" class="empty">暂无推送</td></tr>'}</tbody></table>`;
     window.__runCycle = async (cadence) => {
-      try { await req('POST', `/cycles/${cadence}/run`); toast('已触发周期推送'); } catch (e) { toast(e.message, 'red'); }
+      try { await req('POST', `/cycles/${cadence}/run`); toast('已触发周期推送'); pageCycles(); } catch (e) { toast(e.message, 'red'); }
     };
   }
 
   async function pageRewards() {
-    setPage('奖惩考核', '分级分值 / 责任工单');
+    setPage('奖惩考核', '完成/逾期触发 / 填写责任单 / 审批 / 人力执行');
     activeNav('rewards');
-    const [rewards, std] = await Promise.all([req('GET', '/rewards'), req('GET', '/reward-standards')]);
+    const [rewards, std, orders] = await Promise.all([req('GET', '/rewards'), req('GET', '/reward-standards'), req('GET', '/responsibility-orders')]);
     const body = document.getElementById('page-body');
     body.innerHTML = `
-      <div class="section-title">奖惩标准 <span class="line"></span></div>
+      <div class="section-title">奖惩责任工单 <span class="line"></span></div>
+      <div class="table-scroll"><table><thead><tr><th>类型</th><th>触发原因</th><th>战役负责人</th><th>参与人员及比例</th><th>状态</th><th>人力状态</th><th>操作</th></tr></thead><tbody>
+        ${orders.map(o => `<tr><td><span class="tag ${o.type === '奖励' ? 'green' : 'red'}">${esc(o.type)}</span></td><td>${esc(o.triggerReason)}</td><td>${esc(userName(o.campaignOwner) || o.campaignOwner)}</td><td>${esc((o.allocations || []).map(a => `${a.name}:${a.ratio}%`).join('；') || '-')}</td><td>${esc(o.status)}</td><td>${esc(o.hrStatus)}</td><td>${orderButtons(o)}</td></tr>`).join('') || '<tr><td colspan="7" class="empty">计划完成100%或到期未完成后自动生成</td></tr>'}
+      </tbody></table></div>
+      <div class="section-title" style="margin-top:20px;">奖惩标准 <span class="line"></span></div>
       <table><thead><tr><th>级别</th><th>分值</th><th>激励区间</th><th>决策层级</th><th>说明</th></tr></thead><tbody>
-        ${std.levels.map((l) => `<tr><td><span class="tag blue">${esc(l.level)}</span></td><td>${l.score}分</td><td>${l.rewardMin}-${l.rewardMax}元</td><td>${esc(l.decision)}</td><td style="font-size:12px;color:#8a8f99;">${esc(l.desc)}</td></tr>`).join('')}
-      </tbody></table>
-      <div class="section-title" style="margin-top:20px;">责任工单分比例 <span class="line"></span></div>
-      <table><thead><tr><th>角色</th><th>担责比例</th><th>说明</th></tr></thead><tbody>
-        ${std.responsibility.map((r) => `<tr><td>${esc(r.role)}</td><td>${Math.round(r.ratio * 100)}%</td><td style="font-size:12px;color:#8a8f99;">${esc(r.note)}</td></tr>`).join('')}
+        ${std.levels.map(l => `<tr><td><span class="tag blue">${esc(l.level)}</span></td><td>${l.score}分</td><td>${l.rewardMin}-${l.rewardMax}元</td><td>${esc(l.decision)}</td><td>${esc(l.desc)}</td></tr>`).join('')}
       </tbody></table>
       <div class="section-title" style="margin-top:20px;">奖惩记录 <span class="line"></span></div>
-      <table><thead><tr><th>类型</th><th>计划</th><th>级别</th><th>金额</th><th>担责比例</th><th>时间</th></tr></thead><tbody>
-        ${rewards.map((r) => `<tr><td>${r.type === '激励' ? '<span class="tag green">激励</span>' : '<span class="tag red">处罚</span>'}</td><td>${esc(r.planId)}</td><td>${esc(r.level)}</td><td style="font-weight:600;color:${r.amount >= 0 ? 'var(--green)' : 'var(--red)'};">${r.amount >= 0 ? '+' : ''}${r.amount}元</td><td>${Math.round(r.ratio * 100)}%</td><td style="font-size:12px;">${esc(r.at.slice(0, 10))}</td></tr>`).join('') || '<tr><td colspan="6" class="empty">暂无奖惩记录</td></tr>'}
+      <table><thead><tr><th>类型</th><th>计划</th><th>级别</th><th>金额</th><th>时间</th></tr></thead><tbody>
+        ${rewards.map(r => `<tr><td>${esc(r.type)}</td><td>${esc(r.planId)}</td><td>${esc(r.level)}</td><td>${r.amount}元</td><td>${esc((r.at || '').slice(0,10))}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">暂无奖惩记录</td></tr>'}
       </tbody></table>`;
+    window.__fillOrder = (id) => showOrderModal(id);
+    window.__orderStatus = async (id, status) => { try { await req('PUT', `/responsibility-orders/${id}`, { status }); toast('工单状态已更新'); pageRewards(); } catch(e) { toast(e.message, 'red'); } };
+  }
+
+  function orderButtons(o) {
+    if (o.status === '待填写' || o.status === '已驳回') return `<button class="btn p sm" onclick="window.__fillOrder('${o.id}')">填写并提交</button>`;
+    if (o.status === '待审批' && allowed('reward.manage')) return `<button class="btn p sm" onclick="window.__orderStatus('${o.id}','已批准')">批准</button> <button class="btn g sm" onclick="window.__orderStatus('${o.id}','已驳回')">驳回</button>`;
+    if (o.status === '已批准' && allowed('org.view')) return `<button class="btn p sm" onclick="window.__orderStatus('${o.id}','人力已执行')">人力确认执行</button>`;
+    return '-';
+  }
+
+  function showOrderModal(id) {
+    showModal('填写奖惩责任单', `<div class="form"><div class="full"><label>参与人员及分配比例（每行：姓名:比例）</label><textarea id="f-alloc" rows="6" placeholder="张三:60\n李四:40"></textarea></div><div class="full"><label>说明</label><textarea id="f-order-note" rows="3"></textarea></div><div class="actions"><button class="btn p" onclick="window.__submitOrder('${id}')">提交审批</button><button class="btn g" onclick="window.__closeModal()">取消</button></div></div>`);
+    window.__submitOrder = async id => {
+      try {
+        const allocations = document.getElementById('f-alloc').value.split(/\n+/).filter(Boolean).map(line => { const [name, ratio] = line.split(/[:：]/); return { name: (name || '').trim(), ratio: Number(ratio) }; });
+        await req('PUT', `/responsibility-orders/${id}`, { status: '待审批', allocations, note: document.getElementById('f-order-note').value });
+        closeModal(); toast('责任单已提交审批'); pageRewards();
+      } catch(e) { toast(e.message, 'red'); }
+    };
   }
 
   async function pageWarnings() {

@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import { auth, requirePerm, signToken, orgScope, teamScope, getUserTeams } from './auth.js';
 import { config } from './config.js';
 import { findOne, find, all, insert, update, remove, nextId, now } from './db.js';
-import { calcLight, refreshAllLights, computeRanking, pushWarnings, pushCycleSummary } from './engine.js';
+import { calcLight, refreshAllLights, computeRanking, pushWarnings, pushCycleSummary, createOutcomeOrder, runDueReminders, pushKeyNodeUpdate } from './engine.js';
 
 const router = express.Router();
 // Forward rejected async handlers to Express 4's error middleware.
@@ -216,6 +216,12 @@ router.get('/campaigns', auth, requirePerm('strategy.view'), async (req, res) =>
   const scope = await orgScope(req.user, teamId);
   ok(res, (await all('campaigns')).filter((c) => (teamId ? c.teamId === teamId : true) && scope.includes(c.orgUnitId)));
 });
+// 行动计划表单使用的最小战役选项，计划负责人也可读取。
+router.get('/campaign-options', auth, async (req, res) => {
+  const teamId = curTeam(req);
+  ok(res, (await all('campaigns')).filter(c => !teamId || c.teamId === teamId)
+    .map(c => ({ id: c.id, name: c.name, orgUnitId: c.orgUnitId, chiefName: c.chiefName })));
+});
 router.post('/campaigns', auth, validateTeamWrite, requirePerm('strategy.edit'), async (req, res) => {
   const b = body(req);
   const teamId = curTeam(req);
@@ -265,11 +271,18 @@ router.post('/plans', auth, validateTeamWrite, requirePerm('plan.edit'), async (
     id: await nextId('p'),
     teamId: teamId || b.teamId || null,
     name: b.name || '未命名计划',
+    subCampaign: b.subCampaign || '',
     campaignId: b.campaignId || null,
+    campaignName: b.campaignName || '',
     orgUnitId: b.orgUnitId || req.user.orgUnitId,
     level: b.level || '3级',
     score: b.score ?? 2,
     owner: b.owner || req.user.id,
+    ownerName: b.ownerName || '',
+    collector: b.collector || b.ownerName || b.owner || req.user.id,
+    subCampaignOwner: b.subCampaignOwner || b.ownerName || b.owner || req.user.id,
+    metric: b.metric || '',
+    milestone: b.milestone || '',
     participants: b.participants || [],
     progress: Number(b.progress) || 0,
     due: b.due || '',
@@ -290,9 +303,10 @@ router.put('/plans/:id', auth, validateTeamWrite, async (req, res) => {
   if (!await authorizePlanUpdate(req, res, plan)) return;
   const rec = await update('plans', req.params.id, b);
   await refreshAllLights(plan.teamId);
+  await pushKeyNodeUpdate(rec, b.keyProgress || b.note || '');
   // 自动预警推送（更新后红黄灯变化）
-  const { light } = calcLight(rec);
-  if (light !== 'green') await pushWarnings([rec]);
+  const { light, reason } = calcLight(rec);
+  if (light !== 'green') await pushWarnings([{ ...rec, color: light, reason, planName: rec.name }]);
   ok(res, rec);
 });
 
@@ -314,12 +328,19 @@ router.post('/plans/:id/progress', auth, validateTeamWrite, async (req, res) => 
     by: req.user.id,
     progress: Number(b.progress),
     note: b.note || '',
+    keyProgress: b.keyProgress || '',
+    varianceReason: b.varianceReason || '',
+    solutionDecision: b.solutionDecision || '',
     at: now(),
   });
   await refreshAllLights(plan.teamId);
+  await pushKeyNodeUpdate(updated, b.keyProgress || b.note || '');
+  if (Number(b.progress) >= 100 || (plan.due && new Date(plan.due) <= new Date())) {
+    await createOutcomeOrder(updated);
+  }
   // 自动预警推送
-  const { light } = calcLight(updated);
-  if (light !== 'green') await pushWarnings([updated]);
+  const { light, reason } = calcLight(updated);
+  if (light !== 'green') await pushWarnings([{ ...updated, color: light, reason, planName: updated.name }]);
   ok(res, { plan: updated, light, ranking: (await computeRanking('owner', plan.teamId)).slice(0, 5) });
 });
 
@@ -352,8 +373,44 @@ router.get('/cycles', auth, async (req, res) => {
 });
 // 触发周期推送（日/周/月/季/年）
 router.post('/cycles/:cadence/run', auth, requirePerm('plan.edit'), async (req, res) => {
-  await pushCycleSummary(req.params.cadence, curTeam(req));
+  if (req.params.cadence === 'reminders') await runDueReminders(new Date(), curTeam(req));
+  else await pushCycleSummary(req.params.cadence, curTeam(req));
   ok(res, { ran: req.params.cadence, at: now() });
+});
+
+// ===== 奖惩责任工单（站内闭环；外部 OA/HR 对接后可替换流转动作） =====
+router.get('/responsibility-orders', auth, async (req, res) => {
+  ok(res, await find('responsibilityOrders', order => order.teamId === req.teamId));
+});
+router.put('/responsibility-orders/:id', auth, async (req, res) => {
+  const order = await findOne('responsibilityOrders', row => row.id === req.params.id);
+  if (!order || order.teamId !== req.teamId) return fail(res, '未找到', 404);
+  const b = body(req);
+  const transitions = {
+    '待填写': ['待审批'],
+    '待审批': ['已批准', '已驳回'],
+    '已批准': ['人力已执行'],
+    '已驳回': ['待审批'],
+  };
+  const target = b.status || order.status;
+  if (target !== order.status && !(transitions[order.status] || []).includes(target)) return fail(res, '不允许的流程状态变更', 400);
+  if (target === '待审批') {
+    const allocations = Array.isArray(b.allocations) ? b.allocations : order.allocations;
+    const total = (allocations || []).reduce((sum, item) => sum + Number(item.ratio || 0), 0);
+    if (!allocations?.length || Math.abs(total - 100) > 0.001) return fail(res, '奖金/责任分配比例合计必须为100%', 400);
+    b.allocations = allocations;
+    b.submittedBy = req.user.id; b.submittedAt = now();
+  }
+  if (['已批准', '已驳回'].includes(target)) {
+    if (!(req.permissions || []).some(p => p === '*' || p === 'reward.manage')) return fail(res, '无审批权限', 403);
+    b.approvedBy = req.user.id; b.approvedAt = now();
+    if (target === '已批准') b.hrStatus = '待执行';
+  }
+  if (target === '人力已执行') {
+    if (!(req.permissions || []).some(p => p === '*' || p === 'org.view')) return fail(res, '无人力执行权限', 403);
+    b.hrStatus = '已执行'; b.hrHandledBy = req.user.id; b.hrHandledAt = now();
+  }
+  ok(res, await update('responsibilityOrders', order.id, b));
 });
 
 // ===== 四、奖惩 =====

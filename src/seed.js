@@ -183,3 +183,66 @@ export async function seedIfEmpty() {
     conn.release();
   }
 }
+
+const SCREENSHOT_CAMPAIGNS = [
+  { id: 'cm_2025_1', teamId: 't_1', orgUnitId: 'ou_1', strategyId: 's_1', name: '潍坊产能释放及发展规划', chiefName: '曹海宾', status: '进行中' },
+  { id: 'cm_2025_2', teamId: 't_1', orgUnitId: 'ou_1', strategyId: 's_1', name: '新项目全生命周期管理体系建设及业务规模突破（落地）', chiefName: '成耿宇/李旭锋', status: '进行中' },
+  { id: 'cm_2025_3', teamId: 't_1', orgUnitId: 'ou_1', strategyId: 's_1', name: '销售目标达成（预算+存量），及技术支持与服务保障', chiefName: '高正炎', status: '进行中' },
+  { id: 'cm_2025_4', teamId: 't_1', orgUnitId: 'ou_1', strategyId: 's_1', name: '泰国基地建设与运营', chiefName: '海金春', status: '进行中',
+    desc: '战役总目标：完成工程建设，实现投产运营；衡量指标：6.10日前投产；完成TCPP/TDCP XX吨生产目标；实现XX万人民币的利润。' },
+  { id: 'cm_2025_5', teamId: 't_1', orgUnitId: 'ou_1', strategyId: 's_1', name: '极致成本管理', chiefName: '王新军', status: '进行中' },
+  { id: 'cm_2025_6', teamId: 't_1', orgUnitId: 'ou_1', strategyId: 's_1', name: '人才梯队建设与培养', chiefName: '张婷', status: '进行中' },
+];
+
+const SCREENSHOT_PLANS = [
+  ['完成建设工程', '1、加快推进项目建设；2、完成“三查四定”', '“三查四定”及项目中交', '组织“三查四定”', '2026-03-31', '欧阳春'],
+  ['申报建筑和消防验收', '建筑和消防报验', '建筑和消防验收批复', '取得建筑验收批复、消防检测报告', '2026-04-30', '欧阳春'],
+  ['原辅料进场', 'PO（ECH）及其它原辅料进厂', '三氯氧磷卸车；环氧丙烷卸车；三氯化铝到厂。', '三氯氧磷卸车；环氧丙烷卸车；三氯化铝到厂。', '2026-05-10', '包晓敏'],
+  ['工厂相关资质办理', '1、编制风险评估报告；2、办理三氯氧磷《使用武器许可证》；3、申请试生产；4、申请OPERATION。', '三氯氧磷《使用武器许可证》和试生产批复', '取得三氯氧磷《使用武器许可证》（YP2）；取得试生产批复；取得OPERATION证书。', '2026-06-10', '郭宏'],
+  ['产量目标', '实现TCPP/TDCP XX万吨的生产任务', '6.10前投料试车；出合格产品', '6.10前投料试车成功', '2026-12-31', '应有龙'],
+  ['利润目标', '1、实现XX万吨的销售；2、实现XX万的利润', '1、实现XX万吨的销售；2、实现XX万的利润', '第一批成品出厂', '2026-12-31', '李吉'],
+].map((row, index) => ({
+  id: `p_2025_${index + 1}`, teamId: 't_1', campaignId: 'cm_2025_4', campaignName: '泰国基地建设与运营',
+  subCampaign: row[0], name: row[1], metric: row[2], milestone: row[3], due: row[4], ownerName: row[5],
+  collector: row[5], subCampaignOwner: row[5], orgUnitId: 'ou_1', level: '2级', score: 3,
+  participants: [], progress: 0, status: '执行中', category: '泰国基地建设与运营', createdAt: '2026-01-01', updatedAt: '2026-01-01',
+}));
+
+// One-time content migration based only on the supplied screenshots.
+export async function migrateScreenshotContent() {
+  const version = 'screenshot-template-v3';
+  const [done] = await raw().query('SELECT value FROM meta WHERE `key` = ?', ['contentVersion']);
+  if (done[0]?.value === version) return;
+  const conn = await raw().getConnection();
+  const insertRows = async (table, rows) => {
+    for (const source of rows) {
+      const row = { ...source };
+      for (const key of ['participants', 'allocations']) if (Array.isArray(row[key])) row[key] = JSON.stringify(row[key]);
+      const columns = Object.keys(row);
+      await conn.query(`INSERT INTO \`${table}\` (${columns.map(key => `\`${key}\``).join(',')}) VALUES (${columns.map(() => '?').join(',')})`, columns.map(key => row[key]));
+    }
+  };
+  try {
+    await conn.beginTransaction();
+    const [oldPlans] = await conn.query("SELECT id FROM plans WHERE teamId = 't_1'");
+    const oldIds = oldPlans.map(row => row.id);
+    if (oldIds.length) {
+      const placeholders = oldIds.map(() => '?').join(',');
+      for (const table of ['progressLogs', 'warnings', 'rewards', 'tasks', 'responsibilityOrders']) {
+        await conn.query(`DELETE FROM \`${table}\` WHERE planId IN (${placeholders})`, oldIds);
+      }
+    }
+    await conn.query("DELETE FROM pushLogs WHERE teamId = 't_1'");
+    await conn.query("DELETE FROM plans WHERE teamId = 't_1'");
+    await conn.query("DELETE FROM campaigns WHERE teamId = 't_1'");
+    await insertRows('campaigns', SCREENSHOT_CAMPAIGNS);
+    await insertRows('plans', SCREENSHOT_PLANS);
+    await conn.query("INSERT INTO meta (`key`, value) VALUES ('contentVersion', ?) ON DUPLICATE KEY UPDATE value = VALUES(value)", [version]);
+    await conn.commit();
+  } catch (error) {
+    await conn.rollback();
+    throw error;
+  } finally {
+    conn.release();
+  }
+}

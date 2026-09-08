@@ -29,11 +29,11 @@ assert.ok(plans.length > 0 && plans.every(p => p.teamId === 't_2'));
 await request('/teams/switch', { token: limf.token, method: 'POST', body: { teamId: 't_1' }, status: 403 });
 await request('/plans', { token: limf.token, team: 't_1', status: 403 });
 await request('/plans?teamId=t_1', { token: limf.token, status: 403 });
-// p_3 is owned by limf but belongs to a team they cannot access.
-await request('/plans/p_3', { token: limf.token, method: 'PUT', body: { progress: 45 }, status: 403 });
-await request('/plans/p_3/progress', { token: limf.token, method: 'POST', body: { progress: 45 }, status: 403 });
+// p_2025_1 is owned by limf but belongs to a team they cannot access.
+await request('/plans/p_2025_1', { token: limf.token, method: 'PUT', body: { progress: 45 }, status: 403 });
+await request('/plans/p_2025_1/progress', { token: limf.token, method: 'POST', body: { progress: 45 }, status: 403 });
 await request('/plans/p_7', { token: limf.token, method: 'PUT', body: { teamId: 't_1' }, status: 403 });
-await request('/plans/p_7', { token: limf.token, method: 'PUT', body: { campaignId: 'cm_1' }, status: 403 });
+await request('/plans/p_7', { token: limf.token, method: 'PUT', body: { campaignId: 'cm_2025_1' }, status: 403 });
 const own = await request('/plans/p_7', { token: limf.token, method: 'PUT', body: { progress: plans.find(p => p.id === 'p_7').progress } });
 assert.equal(own.teamId, 't_2');
 const context = await request('/context', { token: limf.token });

@@ -5,6 +5,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --no-audit --no-fund --fetch-timeout=30000 --fetch-retries=2 && npm cache clean --force
 COPY src ./src
 COPY web ./web
+RUN chmod -R a+rX /app
 USER node
 EXPOSE 9280
 CMD ["node", "src/app.js"]

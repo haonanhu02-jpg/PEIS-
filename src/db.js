@@ -144,6 +144,7 @@ const TABLES = {
     strategyId: { type: 'text' },
     orgUnitId: { type: 'text' },
     chief: { type: 'text' },
+    chiefName: { type: 'text' },
     commander: { type: 'text' },
     period: { type: 'text' },
     status: { type: 'text' },
@@ -156,11 +157,18 @@ const TABLES = {
     id: { type: 'text', primary: true },
     teamId: { type: 'text', notNull: true },
     name: { type: 'text' },
+    subCampaign: { type: 'text' },
     campaignId: { type: 'text' },
+    campaignName: { type: 'text' },
     orgUnitId: { type: 'text' },
     level: { type: 'text' },
     score: { type: 'int', default: 0 },
     owner: { type: 'text' },
+    ownerName: { type: 'text' },
+    collector: { type: 'text' },
+    subCampaignOwner: { type: 'text' },
+    metric: { type: 'text' },
+    milestone: { type: 'text' },
     participants: { type: 'json' },
     progress: { type: 'int', default: 0 },
     due: { type: 'text' },
@@ -178,6 +186,9 @@ const TABLES = {
     by: { type: 'text' },
     progress: { type: 'int' },
     note: { type: 'text' },
+    keyProgress: { type: 'text' },
+    varianceReason: { type: 'text' },
+    solutionDecision: { type: 'text' },
     at: { type: 'text' },
   },
   warnings: {
@@ -217,6 +228,29 @@ const TABLES = {
     color: { type: 'text' },
     at: { type: 'text' },
     enabled: { type: 'bool' },
+    eventKey: { type: 'text' },
+    status: { type: 'text' },
+  },
+  responsibilityOrders: {
+    id: { type: 'text', primary: true },
+    teamId: { type: 'text', notNull: true },
+    planId: { type: 'text' },
+    campaignId: { type: 'text' },
+    type: { type: 'text' },
+    triggerReason: { type: 'text' },
+    campaignOwner: { type: 'text' },
+    status: { type: 'text', default: '待填写' },
+    allocations: { type: 'json' },
+    submittedBy: { type: 'text' },
+    submittedAt: { type: 'text' },
+    approvedBy: { type: 'text' },
+    approvedAt: { type: 'text' },
+    hrStatus: { type: 'text', default: '待流转' },
+    hrHandledBy: { type: 'text' },
+    hrHandledAt: { type: 'text' },
+    note: { type: 'text' },
+    createdAt: { type: 'text' },
+    updatedAt: { type: 'text' },
   },
   tasks: {
     id: { type: 'text', primary: true },
@@ -239,7 +273,7 @@ const INDEXES = [
 ];
 
 // JSON 字段（存储为字符串，读取时反序列化）
-const JSON_FIELDS = ['participants', 'toUserIds', 'perms'];
+const JSON_FIELDS = ['participants', 'toUserIds', 'perms', 'allocations'];
 // 布尔字段（TINYINT(1)）
 const BOOL_FIELDS = new Set(['enabled']);
 
@@ -281,6 +315,12 @@ export async function init() {
           composite?.includes(name) || INDEXES.some(idx => idx.table === table && idx.columns.includes(name))));
       if (composite) defs.push(`PRIMARY KEY (${composite.map((c) => `\`${c}\``).join(', ')})`);
       await conn.query(`CREATE TABLE IF NOT EXISTS \`${table}\` (${defs.join(', ')}) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+      const [existingColumns] = await conn.query(`SHOW COLUMNS FROM \`${table}\``);
+      const existing = new Set(existingColumns.map(row => row.Field));
+      for (const [name, def] of Object.entries(cols).filter(([key]) => key !== '_pk' && !existing.has(key))) {
+        await conn.query(`ALTER TABLE \`${table}\` ADD COLUMN ${columnDef(name, def,
+          INDEXES.some(idx => idx.table === table && idx.columns.includes(name)))}`);
+      }
     }
     for (const idx of INDEXES) {
       const name = `idx_${idx.table}_${idx.columns.join('_')}`;

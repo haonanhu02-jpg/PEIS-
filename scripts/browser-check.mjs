@@ -38,8 +38,9 @@ try {
     assert.ok(content.includes('涂料订单交付验收'));
     assert.ok(!content.includes('明确降本方案落地'));
     assert.ok(content.includes('李明月'));
-    await page.getByRole('button', { name: '+ 新建计划' }).click();
-    assert.ok(await page.locator('#f-owner option').count() > 0);
+    await page.getByRole('button', { name: '+ 新建行动计划' }).click();
+    assert.ok(await page.locator('#f-campaign option').count() > 0);
+    assert.ok(await page.locator('#f-owner-name').count() === 1);
     await page.getByRole('button', { name: '取消', exact: true }).click();
     await page.screenshot({ path: `artifacts/${username}-plans.png`, fullPage: true });
     await context.close();
