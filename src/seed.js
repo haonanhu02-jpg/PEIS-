@@ -185,7 +185,7 @@ export async function seedIfEmpty() {
 }
 
 const SCREENSHOT_CAMPAIGNS = [
-  { id: 'cm_2025_1', teamId: 't_1', orgUnitId: 'ou_1', strategyId: 's_1', name: '潍坊产能释放及发展规划', chiefName: '曹海宾', status: '进行中' },
+  { id: 'cm_2025_1', teamId: 't_1', orgUnitId: 'ou_1', strategyId: 's_1', name: '潍坊产能释放及发展规划', chiefName: '曹海滨', status: '进行中' },
   { id: 'cm_2025_2', teamId: 't_1', orgUnitId: 'ou_1', strategyId: 's_1', name: '新项目全生命周期管理体系建设及业务规模突破（落地）', chiefName: '成耿宇/李旭锋', status: '进行中' },
   { id: 'cm_2025_3', teamId: 't_1', orgUnitId: 'ou_1', strategyId: 's_1', name: '销售目标达成（预算+存量），及技术支持与服务保障', chiefName: '高正炎', status: '进行中' },
   { id: 'cm_2025_4', teamId: 't_1', orgUnitId: 'ou_1', strategyId: 's_1', name: '泰国基地建设与运营', chiefName: '海金春', status: '进行中',
