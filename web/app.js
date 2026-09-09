@@ -587,21 +587,25 @@
   }
 
   // ===== 推送详情 =====
-  // 显示当前团队所有亮红灯/黄灯的计划，完整呈现 12 字段。
+  // 显示**已触发推送**的红黄灯计划（读 pushLogs 历史），未推送时页面为空。
   async function pagePushDetails() {
-    setPage('推送详情', '亮红灯/黄灯计划的完整推送内容');
+    setPage('推送详情', '已触发推送的红黄灯计划完整内容');
     activeNav('push-details');
     const body = document.getElementById('page-body');
     body.innerHTML = `<div class="empty">加载中...</div>`;
-    let items = [];
+    let logs = [];
     try {
-      items = await req('GET', '/push-details');
+      // 仅保留本次"节点提醒·红黄灯"类型的推送记录（eventKey 以 due: 开头，且带 detail 12 字段）
+      const all = await req('GET', '/push-logs');
+      logs = all
+        .filter((x) => x && x.eventKey && x.eventKey.startsWith('due:') && x.detail)
+        .sort((a, b) => (b.at || '').localeCompare(a.at || ''));
     } catch (e) {
       body.innerHTML = `<div class="empty">加载失败：${esc(e.message)}</div>`;
       return;
     }
-    const reds = items.filter((x) => x.light === 'red');
-    const yellows = items.filter((x) => x.light === 'yellow');
+    const reds = logs.filter((x) => x.color === 'red');
+    const yellows = logs.filter((x) => x.color === 'yellow');
     const fields = [
       ['campaignName', '必胜战役'],
       ['subCampaign', '分解战役'],
@@ -616,30 +620,38 @@
       ['status', '完成状态'],
       ['light', '亮灯情况'],
     ];
-    const renderCard = (it, idx) => {
-      const lightColor = it.light === 'red' ? '#dc2626' : '#d97706';
-      const lightBg = it.light === 'red' ? '#fef2f2' : '#fffbeb';
-      const lightLabel = it.light === 'red' ? '🔴 红灯' : '🟡 黄灯';
+    const renderCard = (log, idx) => {
+      const it = log.detail || {};
+      const light = log.color || it.light || 'red';
+      const lightColor = light === 'red' ? '#dc2626' : '#d97706';
+      const lightBg = light === 'red' ? '#fef2f2' : '#fffbeb';
+      const lightLabel = light === 'red' ? '🔴 红灯' : '🟡 黄灯';
       const phaseTag = it.phase && it.phase !== '-' ? `<span class="tag blue">${esc(it.phase)}</span>` : '';
+      const pushTime = (log.at || '').slice(0, 19).replace('T', ' ');
       return `<div class="pd-card" style="border-left:3px solid ${lightColor};">
         <div class="pd-head" style="background:${lightBg};">
           <div>
-            <div style="display:flex;align-items:center;gap:10px;">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
               <span class="pd-light" style="color:${lightColor};background:#fff;">${lightLabel}</span>
               <strong style="font-size:15px;">${esc(it.planName || '-')}</strong>
               ${phaseTag}
+              <span class="tag gray" style="font-size:11px;">推送于 ${esc(pushTime)}</span>
             </div>
             <div style="margin-top:6px;font-size:12px;color:var(--gray-700);">
               ${esc(it.campaignName)} / ${esc(it.subCampaign)} · 负责人 ${esc(it.ownerName)}
+              · 接收：${esc((log.toUserIds || []).join('、') || '-')}
             </div>
           </div>
           <div style="font-size:11px;color:var(--gray-700);">#${idx + 1}</div>
         </div>
         <div class="pd-grid">
           ${fields.map(([k, label]) => {
-            const v = it[k] ?? '-';
+            let v = it[k];
+            if (k === 'progress' && typeof v === 'number') v = `${v}%`;
             const isLight = k === 'light';
-            const tag = isLight ? `<span class="tag ${v === 'red' ? 'red' : 'yellow'}" style="font-weight:600;">${v === 'red' ? '红灯' : v === 'yellow' ? '黄灯' : v}</span>` : esc(v);
+            const tag = isLight
+              ? `<span class="tag ${v === 'red' ? 'red' : 'yellow'}" style="font-weight:600;">${v === 'red' ? '红灯' : v === 'yellow' ? '黄灯' : esc(v || '-')}</span>`
+              : esc(v || '-');
             return `<div class="pd-cell"><div class="pd-label">${label}</div><div class="pd-val">${tag}</div></div>`;
           }).join('')}
           ${it.lightReason && it.lightReason !== '-' ? `<div class="pd-cell" style="grid-column:span 3;"><div class="pd-label">亮灯原因</div><div class="pd-val" style="color:${lightColor};">${esc(it.lightReason)}</div></div>` : ''}
@@ -652,7 +664,9 @@
         <span class="tag yellow">🟡 黄灯 ${yellows.length}</span>
         <button class="btn g sm" onclick="window.__runPushNow()">立即触发推送</button>
       </div>
-      ${items.length === 0 ? '<div class="empty">当前无红灯/黄灯计划</div>' : items.map(renderCard).join('')}
+      ${logs.length === 0
+        ? `<div class="empty">暂无推送记录<br><span style="font-size:12px;color:var(--gray-500);">请先在「运行节奏」点「检查」,或点上方「立即触发推送」后再来查看</span></div>`
+        : logs.map(renderCard).join('')}
     `;
     // 自带触发逻辑，不依赖 pageCycles 里定义的 __runCycle（避免未访问运行节奏页时按钮失效）
     window.__runPushNow = async () => {
