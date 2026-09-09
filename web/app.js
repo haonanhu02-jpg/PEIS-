@@ -211,6 +211,7 @@
     activeNav('dashboard');
     const d = await req('GET', '/dashboard');
     const body = document.getElementById('page-body');
+    const maxScore = Math.max(1, ...(d.scoreRanking || []).map((r) => r.totalScore));
     body.innerHTML = `
       <div class="cards" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px;">
         <div class="card"><h3>总计划量</h3><div class="num">${d.total}</div><div class="sub">已纳入PEIS的计划</div></div>
@@ -226,11 +227,28 @@
           </tbody></table>
         </div>
         <div>
-          <div class="section-title">预警清单 <span class="line"></span></div>
-          <table><thead><tr><th>计划</th><th>级别</th><th>进度</th><th>状态</th><th>原因</th></tr></thead><tbody>
-            ${d.warnings.map((w) => `<tr><td>${esc(w.planName)}</td><td><span class="tag blue">${esc(w.level)}</span></td><td>${w.progress}%</td><td>${lightTag({ _light: w.color })}</td><td style="font-size:12px;color:#8a8f99;">${esc(w.reason)}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">当前无预警 🎉</td></tr>'}
+          <div class="section-title">分值排名 <span class="line"></span></div>
+          <table><thead><tr><th>#</th><th>负责人</th><th>总得分</th><th>计划数</th></tr></thead><tbody>
+            ${(d.scoreRanking || []).map((r, i) => `<tr>
+              <td>${i + 1}</td>
+              <td>${esc(r.name)}</td>
+              <td title="${esc((r.detail || []).join('；'))}">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <div class="trend" style="flex:1;"><div class="progress"><i style="width:${Math.round((r.totalScore / maxScore) * 100)}%"></i></div></div>
+                  <span class="tag blue" style="min-width:56px;text-align:center;">${r.totalScore} 分</span>
+                </div>
+              </td>
+              <td>${r.planCount}</td>
+            </tr>`).join('') || '<tr><td colspan="4" class="empty">暂无数据</td></tr>'}
           </tbody></table>
+          <div class="field-tip">得分 = Σ(奖惩标准分级分值 × 完成度)：里程碑计划 5 分 / 1级 4 分 / 2级 3 分 / 3级 2 分 / 4级 1 分（悬停得分可看明细）</div>
         </div>
+      </div>
+      <div style="margin-top:20px;">
+        <div class="section-title">预警清单 <span class="line"></span></div>
+        <table><thead><tr><th>计划</th><th>级别</th><th>进度</th><th>状态</th><th>原因</th></tr></thead><tbody>
+          ${d.warnings.map((w) => `<tr><td>${esc(w.planName)}</td><td><span class="tag blue">${esc(w.level)}</span></td><td>${w.progress}%</td><td>${lightTag({ _light: w.color })}</td><td style="font-size:12px;color:#8a8f99;">${esc(w.reason)}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">当前无预警 🎉</td></tr>'}
+        </tbody></table>
       </div>`;
     function progressHtml(v) { return `<div class="trend"><div class="progress"><i style="width:${v}%"></i></div></div>`; }
   }

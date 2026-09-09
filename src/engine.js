@@ -62,22 +62,70 @@ export async function refreshAllLights(teamId) {
 // 计算完成率排名（按计划负责人/组织单元，月考核，团队隔离）
 export async function computeRanking(groupBy = 'owner', teamId) {
   const plans = (await all('plans')).filter((p) => p.status !== '已取消' && (!teamId || p.teamId === teamId));
-  const acc = {};
+  // 归组键：优先 owner(用户ID)，为空时回退 ownerName（截图导入的计划往往只有姓名）
+  const keyOf = (p) => (groupBy === 'orgUnit'
+    ? `ou:${p.orgUnitId}`
+    : (p.owner ? `u:${p.owner}` : `n:${p.ownerName || '未分配'}`));
+  const acc = new Map();
   for (const p of plans) {
-    const key = groupBy === 'orgUnit' ? p.orgUnitId : p.owner;
-    if (!acc[key]) acc[key] = { id: key, name: '', total: 0, completed: 0, progressSum: 0 };
-    acc[key].total += 1;
-    if (p.status === '已完成') acc[key].completed += 1;
-    acc[key].progressSum += Number(p.progress) || 0;
-    if (groupBy === 'owner') acc[key].name = (await findOne('users', (u) => u.id === p.owner))?.name || p.owner;
-    else acc[key].name = (await findOne('orgUnits', (u) => u.id === p.orgUnitId))?.name || p.orgUnitId;
+    const key = keyOf(p);
+    if (!acc.has(key)) {
+      acc.set(key, {
+        id: groupBy === 'orgUnit' ? p.orgUnitId : (p.owner || null),
+        name: groupBy === 'orgUnit' ? '' : (p.ownerName || ''),
+        total: 0, completed: 0, progressSum: 0,
+      });
+    }
+    const x = acc.get(key);
+    x.total += 1;
+    if (p.status === '已完成') x.completed += 1;
+    x.progressSum += Number(p.progress) || 0;
+    if (!x.name && p.ownerName) x.name = p.ownerName;
   }
-  const list = Object.values(acc).map((x) => ({
+  const list = [...acc.values()].map((x) => ({
     ...x,
     completionRate: x.total ? Math.round((x.completed / x.total) * 100) : 0,
     avgProgress: x.total ? Math.round(x.progressSum / x.total) : 0,
   }));
+  for (const x of list) {
+    if (groupBy === 'owner') {
+      if (x.id) x.name = (await findOne('users', (u) => u.id === x.id))?.name || x.name || x.id;
+    } else {
+      x.name = (await findOne('orgUnits', (u) => u.id === x.id))?.name || x.name || x.id;
+    }
+    if (!x.name) x.name = '未分配';
+  }
   list.sort((a, b) => b.completionRate - a.completionRate || b.avgProgress - a.avgProgress);
+  return list;
+}
+
+// 分值排名：按负责人汇总，总分 = Σ(奖惩标准分级分值 × 计划完成度%)
+// 分值来源 planLevels：里程碑计划5分 / 1级4分 / 2级3分 / 3级2分 / 4级1分
+// 负责人归组：优先按 owner(用户ID)，为空时按 ownerName(姓名，如截图导入的计划)
+export async function computeScoreRanking(teamId) {
+  const plans = (await all('plans')).filter((p) => p.status !== '已取消' && (!teamId || p.teamId === teamId));
+  const levels = await all('planLevels');
+  const scoreOf = (level) => levels.find((l) => l.level === level)?.score || 0;
+  const acc = new Map();
+  for (const p of plans) {
+    const key = p.owner ? `u:${p.owner}` : `n:${p.ownerName || '未分配'}`;
+    if (!acc.has(key)) acc.set(key, { id: p.owner || null, name: p.ownerName || '', planCount: 0, totalScore: 0, detail: [] });
+    const x = acc.get(key);
+    const base = scoreOf(p.level);
+    const progress = Number(p.progress) || 0;
+    const gained = Math.round(base * progress) / 100; // 分值 × 完成度%，保留两位
+    x.planCount += 1;
+    x.totalScore += gained;
+    if (base > 0) x.detail.push(`${p.name || p.subCampaign || p.id}（${p.level}）：${progress}%×${base}分=${gained}分`);
+    if (!x.name && p.ownerName) x.name = p.ownerName;
+  }
+  const list = [...acc.values()];
+  for (const x of list) {
+    x.totalScore = Math.round(x.totalScore * 100) / 100;
+    if (x.id) x.name = (await findOne('users', (u) => u.id === x.id))?.name || x.name || x.id;
+    if (!x.name) x.name = '未分配';
+  }
+  list.sort((a, b) => b.totalScore - a.totalScore);
   return list;
 }
 

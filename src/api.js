@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import { auth, requirePerm, signToken, orgScope, teamScope, getUserTeams } from './auth.js';
 import { config } from './config.js';
 import { findOne, find, all, insert, update, remove, nextId, now } from './db.js';
-import { calcLight, refreshAllLights, computeRanking, pushWarnings, pushCycleSummary, createOutcomeOrder, runDueReminders, pushKeyNodeUpdate, REMINDER_PHASES, buildPlanDetail, localDate, oneMonthBefore, addDays, matchPhaseByDaysLeft } from './engine.js';
+import { calcLight, refreshAllLights, computeRanking, computeScoreRanking, pushWarnings, pushCycleSummary, createOutcomeOrder, runDueReminders, pushKeyNodeUpdate, REMINDER_PHASES, buildPlanDetail, localDate, oneMonthBefore, addDays, matchPhaseByDaysLeft } from './engine.js';
 
 const router = express.Router();
 const PLAN_LEVELS = ['里程碑计划', '1级计划', '2级计划', '3级计划', '4级计划'];
@@ -165,6 +165,7 @@ router.get('/dashboard', auth, async (req, res) => {
   }
   const total = plans.length || 1;
   const ranking = (await computeRanking('owner', teamId)).slice(0, 8);
+  const scoreRanking = (await computeScoreRanking(teamId)).slice(0, 8);
   const warnings = (await all('warnings')).filter((w) => visiblePlan(req, w, scope)).slice(0, 20);
   ok(res, {
     total,
@@ -173,6 +174,7 @@ router.get('/dashboard', auth, async (req, res) => {
     avgProgress: Math.round(progressSum / total),
     lights,
     ranking,
+    scoreRanking,
     warnings,
     teamId,
     teamName: (await all('teams')).find((t) => t.id === teamId)?.name || '',
