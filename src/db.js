@@ -232,6 +232,7 @@ const TABLES = {
     at: { type: 'text' },
     enabled: { type: 'bool' },
     eventKey: { type: 'text' },
+    detail: { type: 'json' },
     status: { type: 'text' },
   },
   responsibilityOrders: {
@@ -276,7 +277,7 @@ const INDEXES = [
 ];
 
 // JSON 字段（存储为字符串，读取时反序列化）
-const JSON_FIELDS = ['participants', 'toUserIds', 'perms', 'allocations'];
+const JSON_FIELDS = ['participants', 'toUserIds', 'perms', 'allocations', 'detail'];
 // 布尔字段（TINYINT(1)）
 const BOOL_FIELDS = new Set(['enabled', '_lightManual']);
 

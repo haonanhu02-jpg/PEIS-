@@ -131,7 +131,17 @@ export async function computeScoreRanking(teamId) {
 
 // 构造推送内容（钉钉/致信），仅记录 pushLog（企业本地部署模拟推送）
 export async function pushNotice({ title, content, toUserIds = [], channel = '站内', color = 'red', teamId = null, eventKey = null, detail = null }) {
-  if (eventKey && await findOne('pushLogs', row => row.eventKey === eventKey)) return null;
+  if (eventKey) {
+    const existing = await findOne('pushLogs', row => row.eventKey === eventKey);
+    if (existing) {
+      // 旧版 pushLogs 没有 detail 列，同一 eventKey 又会阻止重新生成。
+      // 当新版能构造完整详情时，就地补全旧记录，仍保持推送去重。
+      if (detail && !existing.detail) {
+        return update('pushLogs', existing.id, { title, content, toUserIds, channel, color, detail });
+      }
+      return null;
+    }
+  }
   const log = {
     id: `push_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
     teamId,
