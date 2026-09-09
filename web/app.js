@@ -390,7 +390,9 @@
   }
 
   function completionTag(plan) {
-    if (!plan.completedAt) return '<span class="tag gray">未完成</span>';
+    const done = Number(plan.progress) >= 100 || plan.status === '已完成';
+    if (!done) return '<span class="tag gray">未完成</span>';
+    if (!plan.completedAt) return '<span class="tag green">已完成</span>';
     if (!plan.due) return '<span class="tag green">已完成</span>';
     return plan.completedAt <= plan.due ? '<span class="tag green">按时完成</span>' : '<span class="tag red">延误完成</span>';
   }
