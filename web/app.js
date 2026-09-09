@@ -370,7 +370,7 @@
   }
 
   function planLevelLabel(level) {
-    return level === '里程碑' ? '里程碑计划' : `${level || '3级'}计划`;
+    return ['里程碑计划', '1级计划', '2级计划', '3级计划', '4级计划'].includes(level) ? level : '3级计划';
   }
 
   function completionTag(plan) {
@@ -385,7 +385,7 @@
         <div class="full"><label>关联必胜战役</label><select id="f-campaign">${cache.campaigns.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></div>
         <div class="full"><label>分解战役</label><input id="f-sub" /></div>
         <div class="full"><label>行动计划</label><textarea id="f-name" rows="2"></textarea></div>
-        <div><label>计划分级</label><select id="f-level"><option value="里程碑">里程碑计划</option><option value="1级">1级计划</option><option value="2级">2级计划</option><option value="3级">3级计划</option><option value="4级">4级计划</option></select></div>
+        <div><label>计划分级</label><select id="f-level"><option value="里程碑计划">里程碑计划</option><option value="1级计划">1级计划</option><option value="2级计划">2级计划</option><option value="3级计划">3级计划</option><option value="4级计划">4级计划</option></select></div>
         <div class="full"><label>衡量指标</label><textarea id="f-metric" rows="2"></textarea></div>
         <div class="full"><label>里程碑事件</label><textarea id="f-milestone" rows="2"></textarea></div>
         <div><label>完成时间</label><input id="f-due" type="date" /></div>

@@ -7,6 +7,7 @@ import { findOne, find, all, insert, update, remove, nextId, now } from './db.js
 import { calcLight, refreshAllLights, computeRanking, pushWarnings, pushCycleSummary, createOutcomeOrder, runDueReminders, pushKeyNodeUpdate } from './engine.js';
 
 const router = express.Router();
+const PLAN_LEVELS = ['里程碑计划', '1级计划', '2级计划', '3级计划', '4级计划'];
 // Forward rejected async handlers to Express 4's error middleware.
 for (const method of ['get', 'post', 'put', 'delete']) {
   const register = router[method].bind(router);
@@ -43,7 +44,9 @@ async function authorizePlanUpdate(req, res, plan) {
     if (!perms.includes('plan.edit_self') || plan.owner !== req.user.id) {
       fail(res, '无权修改此计划', 403); return false;
     }
-    const fields = req.path.endsWith('/progress') ? ['progress', 'status', 'note'] : ['progress', 'status'];
+    const fields = req.path.endsWith('/progress')
+      ? ['progress', 'status', 'note', 'keyProgress', 'varianceReason', 'solutionDecision', 'completedAt']
+      : ['progress', 'status'];
     if (Object.keys(body(req)).some(key => !fields.includes(key))) {
       fail(res, '只能更新本人计划的进度和状态', 403); return false;
     }
@@ -267,6 +270,8 @@ router.get('/plans', auth, async (req, res) => {
 router.post('/plans', auth, validateTeamWrite, requirePerm('plan.edit'), async (req, res) => {
   const b = body(req);
   const teamId = curTeam(req);
+  const level = b.level || '3级计划';
+  if (!PLAN_LEVELS.includes(level)) return fail(res, '计划分级必须为里程碑计划、1级计划、2级计划、3级计划或4级计划', 400);
   const rec = {
     id: await nextId('p'),
     teamId: teamId || b.teamId || null,
@@ -275,7 +280,7 @@ router.post('/plans', auth, validateTeamWrite, requirePerm('plan.edit'), async (
     campaignId: b.campaignId || null,
     campaignName: b.campaignName || '',
     orgUnitId: b.orgUnitId || req.user.orgUnitId,
-    level: b.level || '3级',
+    level,
     score: b.score ?? 2,
     owner: b.owner || req.user.id,
     ownerName: b.ownerName || '',
@@ -298,6 +303,7 @@ router.post('/plans', auth, validateTeamWrite, requirePerm('plan.edit'), async (
 });
 router.put('/plans/:id', auth, validateTeamWrite, async (req, res) => {
   const b = body(req);
+  if (b.level !== undefined && !PLAN_LEVELS.includes(b.level)) return fail(res, '计划分级无效', 400);
   // 本人只能改自己的进度（plan.edit_self），有 plan.edit 可改全部
   const plan = await findOne('plans', (p) => p.id === req.params.id);
   if (!plan) return fail(res, '未找到', 404);

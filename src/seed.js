@@ -79,11 +79,11 @@ const D = {
 
   // 计划分级标准
   planLevels: [
-    { id: 'pl_1', level: '里程碑', score: 5, rewardMin: 5000, rewardMax: 30000, decision: 'CEO', desc: '战略级重大事项·最高决策层关注（重大签约/项目筹开/业务战略）' },
-    { id: 'pl_2', level: '1级', score: 4, rewardMin: 3000, rewardMax: 6000, decision: 'CEO', desc: '产业1号位或总部部门负责人直接主责、向最高决策层汇报、对年度目标有重要影响' },
-    { id: 'pl_3', level: '2级', score: 3, rewardMin: 2000, rewardMax: 4000, decision: '产业1号位/CEO', desc: '里程碑和1级计划的分解、需跨部门协调的重要任务' },
-    { id: 'pl_4', level: '3级', score: 2, rewardMin: 2000, rewardMax: 4000, decision: '产业1号位/CHO', desc: '执行层面任务、双周/月度可完成的操作性事项' },
-    { id: 'pl_5', level: '4级', score: 1, rewardMin: 2000, rewardMax: 4000, decision: '产业1号位/部门1号位', desc: '日常执行事项、单周可完成的支撑性任务' },
+    { id: 'pl_1', level: '里程碑计划', score: 5, rewardMin: 5000, rewardMax: 30000, decision: 'CEO', desc: '战略级重大事项·最高决策层关注（重大签约/项目筹开/业务战略）' },
+    { id: 'pl_2', level: '1级计划', score: 4, rewardMin: 3000, rewardMax: 6000, decision: 'CEO', desc: '产业1号位或总部部门负责人直接主责、向最高决策层汇报、对年度目标有重要影响' },
+    { id: 'pl_3', level: '2级计划', score: 3, rewardMin: 2000, rewardMax: 4000, decision: '产业1号位/CEO', desc: '里程碑和1级计划的分解、需跨部门协调的重要任务' },
+    { id: 'pl_4', level: '3级计划', score: 2, rewardMin: 2000, rewardMax: 4000, decision: '产业1号位/CHO', desc: '执行层面任务、双周/月度可完成的操作性事项' },
+    { id: 'pl_5', level: '4级计划', score: 1, rewardMin: 2000, rewardMax: 4000, decision: '产业1号位/部门1号位', desc: '日常执行事项、单周可完成的支撑性任务' },
   ],
 
   // 责任工单比例
@@ -135,13 +135,13 @@ const D = {
 
   // 战役计划（挂团队，按战役对应部门）
   plans: [
-    { id: 'p_1', teamId: 't_1', name: '明确降本方案落地', campaignId: 'cm_1', orgUnitId: 'ou_10', level: '1级', score: 4, owner: 'u_3', participants: ['u_4'], progress: 92, due: '2026-09-30', status: '执行中', updatedAt: '2026-08-28', category: '经营提效' },
-    { id: 'p_2', teamId: 't_1', name: '全球线下零售收入2.07亿', campaignId: 'cm_2', orgUnitId: 'ou_13', level: '2级', score: 3, owner: 'u_4', participants: ['u_6'], progress: 70, due: '2026-12-31', status: '执行中', updatedAt: '2026-08-25', category: '营销一体化' },
-    { id: 'p_3', teamId: 't_1', name: '高端新品客房出街提前32天', campaignId: 'cm_1', orgUnitId: 'ou_7', level: '3级', score: 2, owner: 'u_5', participants: ['u_6'], progress: 45, due: '2026-09-15', status: '执行中', updatedAt: '2026-09-01', category: '经营提效' },
-    { id: 'p_4', teamId: 't_1', name: '国内营销数据中台使用', campaignId: 'cm_3', orgUnitId: 'ou_11', level: '1级', score: 4, owner: 'u_4', participants: ['u_3'], progress: 60, due: '2026-10-30', status: '执行中', updatedAt: '2026-08-30', category: 'AI+数字化' },
-    { id: 'p_5', teamId: 't_1', name: '核心岗位到位率96%', campaignId: 'cm_1', orgUnitId: 'ou_9', level: '2级', score: 3, owner: 'u_4', participants: [], progress: 96, due: '2026-08-31', status: '已完成', updatedAt: '2026-08-20', category: '组织人才' },
-    { id: 'p_6', teamId: 't_1', name: '重大客户合作签约3+2个', campaignId: 'cm_2', orgUnitId: 'ou_6', level: '里程碑', score: 5, owner: 'u_2', participants: ['u_3'], progress: 55, due: '2026-12-31', status: '执行中', updatedAt: '2026-08-29', category: '投融增长' },
-    { id: 'p_7', teamId: 't_2', name: '涂料订单交付验收', campaignId: 'cm_4', orgUnitId: 'ou_20', level: '2级', score: 3, owner: 'u_5', participants: ['u_6'], progress: 85, due: '2026-09-10', status: '执行中', updatedAt: '2026-08-28', category: '交付保障' },
+    { id: 'p_1', teamId: 't_1', name: '明确降本方案落地', campaignId: 'cm_1', orgUnitId: 'ou_10', level: '1级计划', score: 4, owner: 'u_3', participants: ['u_4'], progress: 92, due: '2026-09-30', status: '执行中', updatedAt: '2026-08-28', category: '经营提效' },
+    { id: 'p_2', teamId: 't_1', name: '全球线下零售收入2.07亿', campaignId: 'cm_2', orgUnitId: 'ou_13', level: '2级计划', score: 3, owner: 'u_4', participants: ['u_6'], progress: 70, due: '2026-12-31', status: '执行中', updatedAt: '2026-08-25', category: '营销一体化' },
+    { id: 'p_3', teamId: 't_1', name: '高端新品客房出街提前32天', campaignId: 'cm_1', orgUnitId: 'ou_7', level: '3级计划', score: 2, owner: 'u_5', participants: ['u_6'], progress: 45, due: '2026-09-15', status: '执行中', updatedAt: '2026-09-01', category: '经营提效' },
+    { id: 'p_4', teamId: 't_1', name: '国内营销数据中台使用', campaignId: 'cm_3', orgUnitId: 'ou_11', level: '1级计划', score: 4, owner: 'u_4', participants: ['u_3'], progress: 60, due: '2026-10-30', status: '执行中', updatedAt: '2026-08-30', category: 'AI+数字化' },
+    { id: 'p_5', teamId: 't_1', name: '核心岗位到位率96%', campaignId: 'cm_1', orgUnitId: 'ou_9', level: '2级计划', score: 3, owner: 'u_4', participants: [], progress: 96, due: '2026-08-31', status: '已完成', updatedAt: '2026-08-20', category: '组织人才' },
+    { id: 'p_6', teamId: 't_1', name: '重大客户合作签约3+2个', campaignId: 'cm_2', orgUnitId: 'ou_6', level: '里程碑计划', score: 5, owner: 'u_2', participants: ['u_3'], progress: 55, due: '2026-12-31', status: '执行中', updatedAt: '2026-08-29', category: '投融增长' },
+    { id: 'p_7', teamId: 't_2', name: '涂料订单交付验收', campaignId: 'cm_4', orgUnitId: 'ou_20', level: '2级计划', score: 3, owner: 'u_5', participants: ['u_6'], progress: 85, due: '2026-09-10', status: '执行中', updatedAt: '2026-08-28', category: '交付保障' },
   ],
 
   // 进度更新记录
@@ -152,8 +152,8 @@ const D = {
 
   warnings: [],
   rewards: [
-    { id: 'rw_1', teamId: 't_1', planId: 'p_5', level: '2级', score: 3, amount: 3000, type: '激励', by: 'u_2', note: '完成率100%，按期达成', at: '2026-08-20', ratio: 1.0 },
-    { id: 'rw_2', teamId: 't_1', planId: 'p_3', level: '3级', score: 2, amount: -500, type: '处罚', by: 'u_3', note: '进度滞后红灯', at: '2026-09-01', ratio: 0.5 },
+    { id: 'rw_1', teamId: 't_1', planId: 'p_5', level: '2级计划', score: 3, amount: 3000, type: '激励', by: 'u_2', note: '完成率100%，按期达成', at: '2026-08-20', ratio: 1.0 },
+    { id: 'rw_2', teamId: 't_1', planId: 'p_3', level: '3级计划', score: 2, amount: -500, type: '处罚', by: 'u_3', note: '进度滞后红灯', at: '2026-09-01', ratio: 0.5 },
   ],
   pushLogs: [],
   tasks: [],
@@ -204,7 +204,7 @@ const SCREENSHOT_PLANS = [
 ].map((row, index) => ({
   id: `p_2025_${index + 1}`, teamId: 't_1', campaignId: 'cm_2025_4', campaignName: '泰国基地建设与运营',
   subCampaign: row[0], name: row[1], metric: row[2], milestone: row[3], due: row[4], ownerName: row[5],
-  collector: row[5], subCampaignOwner: row[5], orgUnitId: 'ou_1', level: '2级', score: 3,
+  collector: row[5], subCampaignOwner: row[5], orgUnitId: 'ou_1', level: '2级计划', score: 3,
   participants: [], progress: 0, status: '执行中', category: '泰国基地建设与运营', createdAt: '2026-01-01', updatedAt: '2026-01-01',
 }));
 
@@ -213,6 +213,12 @@ export async function migrateScreenshotContent() {
   const version = 'screenshot-template-v3';
   // 修正已初始化数据库中的历史错别字，避免只修改种子数据后线上仍显示旧值。
   await raw().query("UPDATE campaigns SET chiefName = '曹海滨' WHERE chiefName = '曹海宾'");
+  // 计划分级使用完整业务名称；兼容并迁移旧版简称。
+  for (const table of ['plans', 'planLevels', 'rewards']) {
+    await raw().query(`UPDATE \`${table}\` SET level = CASE level
+      WHEN '里程碑' THEN '里程碑计划' WHEN '1级' THEN '1级计划' WHEN '2级' THEN '2级计划'
+      WHEN '3级' THEN '3级计划' WHEN '4级' THEN '4级计划' ELSE level END`);
+  }
   const [done] = await raw().query('SELECT value FROM meta WHERE `key` = ?', ['contentVersion']);
   if (done[0]?.value === version) return;
   const conn = await raw().getConnection();

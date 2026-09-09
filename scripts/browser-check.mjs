@@ -44,6 +44,7 @@ try {
     assert.ok(await page.locator('#f-campaign option').count() > 0);
     assert.ok(await page.locator('#f-owner-name').count() === 1);
     assert.deepEqual(await page.locator('#f-level option').allTextContents(), ['里程碑计划', '1级计划', '2级计划', '3级计划', '4级计划']);
+    assert.deepEqual(await page.locator('#f-level option').evaluateAll(options => options.map(option => option.value)), ['里程碑计划', '1级计划', '2级计划', '3级计划', '4级计划']);
     await page.getByRole('button', { name: '取消', exact: true }).click();
     await page.getByRole('button', { name: '更新进度' }).first().click();
     assert.equal(await page.locator('#f-completed-at').getAttribute('type'), 'date');
