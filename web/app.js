@@ -7,7 +7,7 @@
   let me = null;
   let teams = [];
   let activeTeamId = localStorage.getItem('peis_team') || '';
-  let cache = { orgUnits: [], levels: [], campaigns: [] };
+  let cache = { orgUnits: [], levels: [], campaigns: [], plans: [] };
   const routePerms = { strategies: 'strategy.view', campaigns: 'strategy.view', meetings: 'meeting.view', rewards: 'reward.view', org: 'org.view' };
   function allowed(perm) { return !perm || me?.permissions?.includes('*') || me?.permissions?.includes(perm); }
 
@@ -324,6 +324,7 @@
     activeNav('plans');
     const [plans, campaigns] = await Promise.all([req('GET', '/plans'), req('GET', '/campaign-options')]);
     cache.campaigns = campaigns;
+    cache.plans = plans;
     const body = document.getElementById('page-body');
     body.innerHTML = `
       <div class="filters">
@@ -332,7 +333,7 @@
         <select id="fl-mine" onchange="window.__filterPlans()"><option value="">全部负责人</option><option value="1">我的计划</option></select>
         <button class="btn p sm" style="margin-left:auto;" onclick="window.__newPlan()">+ 新建行动计划</button>
       </div>
-      <div class="table-scroll"><table class="wide-table"><thead><tr><th>必胜战役</th><th>分解战役</th><th>行动计划</th><th>衡量指标</th><th>里程碑事件</th><th>完成时间</th><th>负责人</th><th>完成度</th><th>状态</th><th>操作</th></tr></thead>
+      <div class="table-scroll"><table class="wide-table"><thead><tr><th>必胜战役</th><th>分解战役</th><th>行动计划</th><th>计划分级</th><th>衡量指标</th><th>里程碑事件</th><th>计划完成时间</th><th>实际完成时间</th><th>负责人</th><th>完成度</th><th>完成状态</th><th>红黄灯</th><th>操作</th></tr></thead>
       <tbody id="plan-tbody">${renderPlanRows(plans)}</tbody></table></div>`;
     window.__filterPlans = async () => {
       const campaignId = document.getElementById('fl-campaign').value;
@@ -342,7 +343,8 @@
       if (campaignId) qs.set('campaignId', campaignId);
       if (status) qs.set('status', status);
       if (mine) qs.set('mine', mine);
-      document.getElementById('plan-tbody').innerHTML = renderPlanRows(await req('GET', '/plans?' + qs));
+      const list = await req('GET', '/plans?' + qs); cache.plans = list;
+      document.getElementById('plan-tbody').innerHTML = renderPlanRows(list);
     };
     window.__newPlan = () => showPlanModal();
     window.__updProgress = (id) => showProgressModal(id);
@@ -353,17 +355,28 @@
   }
 
   function renderPlanRows(plans) {
-    if (!plans.length) return '<tr><td colspan="10" class="empty">暂无行动计划</td></tr>';
+    if (!plans.length) return '<tr><td colspan="13" class="empty">暂无行动计划</td></tr>';
     return plans.map((p) => `<tr>
       <td style="font-weight:600;min-width:180px;">${esc(campaignName(p))}</td>
       <td style="min-width:145px;">${esc(p.subCampaign || p.name)}</td>
       <td style="min-width:230px;">${esc(p.name)}</td>
+      <td><span class="tag blue">${esc(planLevelLabel(p.level))}</span></td>
       <td style="min-width:200px;">${esc(p.metric || '-')}</td>
       <td style="min-width:220px;">${esc(p.milestone || '-')}</td>
-      <td>${esc(p.due || '-')}</td><td>${esc(p.ownerName || userName(p.owner))}</td>
-      <td>${progressBar(p)}</td><td>${lightTag(p)}</td>
+      <td>${esc(p.due || '-')}</td><td>${esc(p.completedAt || '-')}</td><td>${esc(p.ownerName || userName(p.owner))}</td>
+      <td>${progressBar(p)}</td><td>${completionTag(p)}</td><td>${lightTag(p)}</td>
       <td><button class="btn g sm" onclick="window.__updProgress('${p.id}')">更新进度</button></td>
     </tr>`).join('');
+  }
+
+  function planLevelLabel(level) {
+    return level === '里程碑' ? '里程碑计划' : `${level || '3级'}计划`;
+  }
+
+  function completionTag(plan) {
+    if (!plan.completedAt) return '<span class="tag gray">未完成</span>';
+    if (!plan.due) return '<span class="tag green">已完成</span>';
+    return plan.completedAt <= plan.due ? '<span class="tag green">按时完成</span>' : '<span class="tag red">延误完成</span>';
   }
 
   function showPlanModal() {
@@ -372,6 +385,7 @@
         <div class="full"><label>关联必胜战役</label><select id="f-campaign">${cache.campaigns.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></div>
         <div class="full"><label>分解战役</label><input id="f-sub" /></div>
         <div class="full"><label>行动计划</label><textarea id="f-name" rows="2"></textarea></div>
+        <div><label>计划分级</label><select id="f-level"><option value="里程碑">里程碑计划</option><option value="1级">1级计划</option><option value="2级">2级计划</option><option value="3级">3级计划</option><option value="4级">4级计划</option></select></div>
         <div class="full"><label>衡量指标</label><textarea id="f-metric" rows="2"></textarea></div>
         <div class="full"><label>里程碑事件</label><textarea id="f-milestone" rows="2"></textarea></div>
         <div><label>完成时间</label><input id="f-due" type="date" /></div>
@@ -386,7 +400,8 @@
         const campaign = cache.campaigns.find(c => c.id === campaignId);
         await req('POST', '/plans', {
           campaignId, campaignName: campaign?.name || '', subCampaign: document.getElementById('f-sub').value,
-          name: document.getElementById('f-name').value, metric: document.getElementById('f-metric').value,
+          name: document.getElementById('f-name').value, level: document.getElementById('f-level').value,
+          score: levelScore(document.getElementById('f-level').value), metric: document.getElementById('f-metric').value,
           milestone: document.getElementById('f-milestone').value, due: document.getElementById('f-due').value,
           ownerName: document.getElementById('f-owner-name').value, collector: document.getElementById('f-collector').value,
           subCampaignOwner: document.getElementById('f-sub-owner').value, orgUnitId: campaign?.orgUnitId
@@ -397,10 +412,12 @@
   }
 
   function showProgressModal(id) {
+    const plan = cache.plans.find(p => p.id === id) || {};
     showModal('战役计划的进度更新', `
       <div class="form">
         <div class="full"><label>关键进展</label><textarea id="f-key" rows="3"></textarea></div>
-        <div class="full"><label>完成度（%）</label><input id="f-prog" type="number" min="0" max="100" value="0" /></div>
+        <div><label>完成度（%）</label><input id="f-prog" type="number" min="0" max="100" value="${Number(plan.progress) || 0}" /></div>
+        <div><label>完成时间</label><input id="f-completed-at" type="date" value="${esc(plan.completedAt || '')}" /><div class="field-tip">填写实际完成日期，用于判断按时完成或延误</div></div>
         <div class="full"><label>差异原因</label><textarea id="f-variance" rows="3"></textarea></div>
         <div class="full"><label>解决方案建议/决策点</label><textarea id="f-solution" rows="3"></textarea></div>
         <div class="actions"><button class="btn p" onclick="window.__saveProgress('${id}')">提交</button><button class="btn g" onclick="window.__closeModal()">取消</button></div>
@@ -409,6 +426,7 @@
       try {
         const r = await req('POST', `/plans/${id}/progress`, {
           progress: Number(document.getElementById('f-prog').value), keyProgress: document.getElementById('f-key').value,
+          completedAt: document.getElementById('f-completed-at').value,
           varianceReason: document.getElementById('f-variance').value, solutionDecision: document.getElementById('f-solution').value
         });
         closeModal(); toast(`进度已更新，红黄灯：${r.light === 'green' ? '绿灯' : r.light === 'yellow' ? '黄灯预警' : '红灯警示'}`); pagePlans();

@@ -172,6 +172,7 @@ const TABLES = {
     participants: { type: 'json' },
     progress: { type: 'int', default: 0 },
     due: { type: 'text' },
+    completedAt: { type: 'text' },
     status: { type: 'text' },
     updatedAt: { type: 'text' },
     createdAt: { type: 'text' },
@@ -189,6 +190,7 @@ const TABLES = {
     keyProgress: { type: 'text' },
     varianceReason: { type: 'text' },
     solutionDecision: { type: 'text' },
+    completedAt: { type: 'text' },
     at: { type: 'text' },
   },
   warnings: {

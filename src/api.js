@@ -286,6 +286,7 @@ router.post('/plans', auth, validateTeamWrite, requirePerm('plan.edit'), async (
     participants: b.participants || [],
     progress: Number(b.progress) || 0,
     due: b.due || '',
+    completedAt: b.completedAt || '',
     status: b.status || '执行中',
     category: b.category || '',
     createdAt: now(),
@@ -316,8 +317,10 @@ router.post('/plans/:id/progress', auth, validateTeamWrite, async (req, res) => 
   const plan = await findOne('plans', (p) => p.id === req.params.id);
   if (!plan) return fail(res, '未找到', 404);
   if (!await authorizePlanUpdate(req, res, plan)) return;
+  if (b.completedAt && !/^\d{4}-\d{2}-\d{2}$/.test(b.completedAt)) return fail(res, '完成时间格式无效', 400);
   const updated = await update('plans', req.params.id, {
     progress: Number(b.progress),
+    completedAt: b.completedAt || plan.completedAt || '',
     status: b.status || (Number(b.progress) >= 100 ? '已完成' : plan.status),
   });
   // 记录进度日志
@@ -331,6 +334,7 @@ router.post('/plans/:id/progress', auth, validateTeamWrite, async (req, res) => 
     keyProgress: b.keyProgress || '',
     varianceReason: b.varianceReason || '',
     solutionDecision: b.solutionDecision || '',
+    completedAt: b.completedAt || '',
     at: now(),
   });
   await refreshAllLights(plan.teamId);

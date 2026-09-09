@@ -193,3 +193,4 @@ tr:hover td { background: #fafbfc; }
 .table-scroll { overflow-x:auto; padding-bottom:4px; }
 .wide-table { min-width:1450px; }
 .wide-table td { vertical-align:top; line-height:1.55; }
+.field-tip { margin-top:5px; color:var(--gray-500); font-size:11px; }

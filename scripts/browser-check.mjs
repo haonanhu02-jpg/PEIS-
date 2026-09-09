@@ -35,12 +35,18 @@ try {
     await page.goto('http://127.0.0.1:9280/#/plans');
     await page.reload({ waitUntil: 'networkidle' });
     const content = await page.locator('#page-body').innerText();
+    assert.ok(content.includes('计划分级'));
+    assert.ok(content.includes('实际完成时间'));
     assert.ok(content.includes('涂料订单交付验收'));
     assert.ok(!content.includes('明确降本方案落地'));
     assert.ok(content.includes('李明月'));
     await page.getByRole('button', { name: '+ 新建行动计划' }).click();
     assert.ok(await page.locator('#f-campaign option').count() > 0);
     assert.ok(await page.locator('#f-owner-name').count() === 1);
+    assert.deepEqual(await page.locator('#f-level option').allTextContents(), ['里程碑计划', '1级计划', '2级计划', '3级计划', '4级计划']);
+    await page.getByRole('button', { name: '取消', exact: true }).click();
+    await page.getByRole('button', { name: '更新进度' }).first().click();
+    assert.equal(await page.locator('#f-completed-at').getAttribute('type'), 'date');
     await page.getByRole('button', { name: '取消', exact: true }).click();
     await page.screenshot({ path: `artifacts/${username}-plans.png`, fullPage: true });
     await context.close();
