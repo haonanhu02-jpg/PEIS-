@@ -316,6 +316,15 @@ router.put('/plans/:id', auth, validateTeamWrite, async (req, res) => {
   if (light !== 'green') await pushWarnings([{ ...rec, color: light, reason, planName: rec.name }]);
   ok(res, rec);
 });
+router.delete('/plans/:id', auth, validateTeamWrite, requirePerm('plan.edit'), async (req, res) => {
+  const plan = await findOne('plans', (p) => p.id === req.params.id);
+  if (!plan) return fail(res, '未找到', 404);
+  const scope = await orgScope(req.user, req.teamId);
+  if (!visiblePlan(req, plan, scope)) return fail(res, '无权删除此计划', 403);
+  await remove('plans', req.params.id);
+  await refreshAllLights(plan.teamId);
+  ok(res, { id: req.params.id });
+});
 
 // 进度更新（PEIS系统：人为定期更新进度 -> 自动计算排名/红黄灯/推送）
 router.post('/plans/:id/progress', auth, validateTeamWrite, async (req, res) => {

@@ -152,6 +152,8 @@ tr:hover td { background: #fafbfc; }
 .btn.p:hover { background: var(--primary-dark); }
 .btn.g { background: var(--gray-100); color: var(--gray-700); }
 .btn.g:hover { background: var(--gray-300); }
+.btn.r { background: #fee2e2; color: #b91c1c; }
+.btn.r:hover { background: #fecaca; }
 .btn.sm { padding: 5px 12px; font-size: 12px; }
 
 /* 弹窗 */

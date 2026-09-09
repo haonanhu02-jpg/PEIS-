@@ -347,6 +347,20 @@
       document.getElementById('plan-tbody').innerHTML = renderPlanRows(list);
     };
     window.__newPlan = () => showPlanModal();
+    window.__editPlan = (id) => {
+      const plan = cache.plans.find(p => p.id === id);
+      if (!plan) return toast('未找到该行动计划', 'red');
+      showPlanModal(plan);
+    };
+    window.__deletePlan = async (id) => {
+      const plan = cache.plans.find(p => p.id === id);
+      if (!plan) return toast('未找到该行动计划', 'red');
+      if (!confirm(`确定删除行动计划「${plan.name}」吗？删除后不可恢复。`)) return;
+      try {
+        await req('DELETE', `/plans/${id}`);
+        toast('行动计划已删除'); pagePlans();
+      } catch (e) { toast(e.message, 'red'); }
+    };
     window.__updProgress = (id) => showProgressModal(id);
     window.__setPlanLevel = async (id, level) => {
       if (!level) return;
@@ -372,7 +386,10 @@
       <td style="min-width:220px;">${esc(p.milestone || '-')}</td>
       <td>${esc(p.due || '-')}</td><td>${esc(p.completedAt || '-')}</td><td>${esc(p.ownerName || userName(p.owner))}</td>
       <td>${progressBar(p)}</td><td>${completionTag(p)}</td><td>${lightTag(p)}</td>
-      <td><button class="btn g sm" onclick="window.__updProgress('${p.id}')">更新进度</button></td>
+      <td>
+        <button class="btn g sm" onclick="window.__updProgress('${p.id}')">更新进度</button>
+        ${allowed('plan.edit') ? `<button class="btn p sm" onclick="window.__editPlan('${p.id}')">修改</button><button class="btn r sm" onclick="window.__deletePlan('${p.id}')">删除</button>` : ''}
+      </td>
     </tr>`).join('');
   }
 
@@ -397,34 +414,42 @@
     return plan.completedAt <= plan.due ? '<span class="tag green">按时完成</span>' : '<span class="tag red">延误完成</span>';
   }
 
-  function showPlanModal() {
-    showModal('新建分解战役-行动计划', `
+  function showPlanModal(plan = null) {
+    const isEdit = !!plan;
+    const campaignOptions = cache.campaigns.map(c => `<option value="${c.id}" ${plan?.campaignId === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+    showModal(`${isEdit ? '修改' : '新建'}分解战役-行动计划`, `
       <div class="form">
-        <div class="full"><label>关联必胜战役</label><select id="f-campaign">${cache.campaigns.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></div>
-        <div class="full"><label>分解战役</label><input id="f-sub" /></div>
-        <div class="full"><label>行动计划</label><textarea id="f-name" rows="2"></textarea></div>
-        <div><label>计划分级</label><select id="f-level"><option value="里程碑计划">里程碑计划</option><option value="1级计划">1级计划</option><option value="2级计划">2级计划</option><option value="3级计划">3级计划</option><option value="4级计划">4级计划</option></select></div>
-        <div class="full"><label>衡量指标</label><textarea id="f-metric" rows="2"></textarea></div>
-        <div class="full"><label>里程碑事件</label><textarea id="f-milestone" rows="2"></textarea></div>
-        <div><label>完成时间</label><input id="f-due" type="date" /></div>
-        <div><label>负责人</label><input id="f-owner-name" placeholder="姓名" /></div>
-        <div><label>进度收集人</label><input id="f-collector" placeholder="姓名" /></div>
-        <div><label>分解战役负责人</label><input id="f-sub-owner" placeholder="姓名" /></div>
+        <div class="full"><label>关联必胜战役</label><select id="f-campaign">${campaignOptions}</select></div>
+        <div class="full"><label>分解战役</label><input id="f-sub" value="${esc(plan?.subCampaign || '')}" /></div>
+        <div class="full"><label>行动计划</label><textarea id="f-name" rows="2">${esc(plan?.name || '')}</textarea></div>
+        <div><label>计划分级</label><select id="f-level">${['里程碑计划','1级计划','2级计划','3级计划','4级计划'].map(l => `<option value="${l}" ${plan?.level === l ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+        <div class="full"><label>衡量指标</label><textarea id="f-metric" rows="2">${esc(plan?.metric || '')}</textarea></div>
+        <div class="full"><label>里程碑事件</label><textarea id="f-milestone" rows="2">${esc(plan?.milestone || '')}</textarea></div>
+        <div><label>完成时间</label><input id="f-due" type="date" value="${esc(plan?.due || '')}" /></div>
+        <div><label>负责人</label><input id="f-owner-name" placeholder="姓名" value="${esc(plan?.ownerName || '')}" /></div>
+        <div><label>进度收集人</label><input id="f-collector" placeholder="姓名" value="${esc(plan?.collector || '')}" /></div>
+        <div><label>分解战役负责人</label><input id="f-sub-owner" placeholder="姓名" value="${esc(plan?.subCampaignOwner || '')}" /></div>
         <div class="actions"><button class="btn p" onclick="window.__savePlan()">保存</button><button class="btn g" onclick="window.__closeModal()">取消</button></div>
       </div>`);
     window.__savePlan = async () => {
       try {
         const campaignId = document.getElementById('f-campaign').value;
         const campaign = cache.campaigns.find(c => c.id === campaignId);
-        await req('POST', '/plans', {
+        const payload = {
           campaignId, campaignName: campaign?.name || '', subCampaign: document.getElementById('f-sub').value,
           name: document.getElementById('f-name').value, level: document.getElementById('f-level').value,
           score: levelScore(document.getElementById('f-level').value), metric: document.getElementById('f-metric').value,
           milestone: document.getElementById('f-milestone').value, due: document.getElementById('f-due').value,
           ownerName: document.getElementById('f-owner-name').value, collector: document.getElementById('f-collector').value,
           subCampaignOwner: document.getElementById('f-sub-owner').value, orgUnitId: campaign?.orgUnitId
-        });
-        closeModal(); toast('行动计划已创建'); pagePlans();
+        };
+        if (isEdit) {
+          await req('PUT', `/plans/${plan.id}`, payload);
+          closeModal(); toast('行动计划已修改'); pagePlans();
+        } else {
+          await req('POST', '/plans', payload);
+          closeModal(); toast('行动计划已创建'); pagePlans();
+        }
       } catch (e) { toast(e.message, 'red'); }
     };
   }
