@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import { auth, requirePerm, signToken, orgScope, teamScope, getUserTeams } from './auth.js';
 import { config } from './config.js';
 import { findOne, find, all, insert, update, remove, nextId, now } from './db.js';
-import { calcLight, refreshAllLights, computeRanking, pushWarnings, pushCycleSummary, createOutcomeOrder, runDueReminders, pushKeyNodeUpdate, REMINDER_PHASES, buildPlanDetail, localDate, oneMonthBefore, addDays } from './engine.js';
+import { calcLight, refreshAllLights, computeRanking, pushWarnings, pushCycleSummary, createOutcomeOrder, runDueReminders, pushKeyNodeUpdate, REMINDER_PHASES, buildPlanDetail, localDate, oneMonthBefore, addDays, matchPhaseByDaysLeft } from './engine.js';
 
 const router = express.Router();
 const PLAN_LEVELS = ['里程碑计划', '1级计划', '2级计划', '3级计划', '4级计划'];
@@ -510,13 +510,9 @@ router.get('/push-details', auth, async (req, res) => {
     const { light, reason: lightReason } = calcLight(plan, new Date());
     if (light !== 'red' && light !== 'yellow') continue;
     const campaign = campaigns.find((c) => c.id === plan.campaignId);
-    // 命中阶段：与运行节奏"检查"语义一致，缺失阶段视为"无特定阶段"
+    // 命中阶段：与 runDueReminders 保持一致的"剩余天数窗口"语义
     const today = localDate(new Date());
-    let phase = null;
-    if (oneMonthBefore(plan.due) === today) phase = '提前一个月';
-    else if (plan.due === addDays(today, 7)) phase = '提前一周';
-    else if (plan.due === addDays(today, 3)) phase = '提前三天';
-    else if (plan.due === today) phase = '到期当天';
+    const phase = matchPhaseByDaysLeft(plan.due, today);
     items.push(buildPlanDetail(plan, campaign, light, lightReason, phase || '-'));
   }
   ok(res, items);

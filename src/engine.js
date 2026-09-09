@@ -197,6 +197,22 @@ function addDays(dateText, n) {
 // 节点提醒支持的阶段（顺序即界面展示顺序）
 export const REMINDER_PHASES = ['提前一个月', '提前一周', '提前三天', '到期当天'];
 
+// 按"剩余天数窗口"匹配阶段（从近到远优先，互斥），null 表示不在任何阶段。
+// 到期当天  : 已逾期 或 今天到期（剩余 ≤ 0 天）
+// 提前三天  : 剩余 1~3 天
+// 提前一周  : 剩余 4~7 天
+// 提前一个月: 剩余 8~30 天
+// 说明：旧实现判定"due 恰好等于某一天"，日常数据几乎不可能刚好落在节点上，
+//       实测 7 条种子计划在 4 个节点上全部 0 命中，功能形同虚设。改为天数窗口后命中率正常。
+export function matchPhaseByDaysLeft(due, today) {
+  if (!due) return null;
+  if (due <= today) return '到期当天';
+  if (due <= addDays(today, 3)) return '提前三天';
+  if (due <= addDays(today, 7)) return '提前一周';
+  if (due <= addDays(today, 30)) return '提前一个月';
+  return null;
+}
+
 export async function runDueReminders(at = new Date(), teamId = null, phases = null) {
   const today = localDate(at);
   const plans = await find('plans', plan => (!teamId || plan.teamId === teamId) && plan.due && plan.status !== '已取消');
@@ -204,18 +220,13 @@ export async function runDueReminders(at = new Date(), teamId = null, phases = n
     const campaign = await findOne('campaigns', row => row.id === plan.campaignId);
     const recipients = recipientLabels(plan, campaign);
     let phase = null;
+    const hit = matchPhaseByDaysLeft(plan.due, today);
     if (Array.isArray(phases) && phases.length) {
-      // 手动选中阶段：判断该计划的 due 是否落在所选阶段的对应目标日
-      for (const ph of phases) {
-        if (ph === '提前一个月' && oneMonthBefore(plan.due) === today) { phase = ph; break; }
-        if (ph === '提前一周' && plan.due === addDays(today, 7)) { phase = ph; break; }
-        if (ph === '提前三天' && plan.due === addDays(today, 3)) { phase = ph; break; }
-        if (ph === '到期当天' && plan.due === today) { phase = ph; break; }
-      }
+      // 手动选中阶段：按剩余天数窗口匹配，仅保留用户勾选的阶段
+      if (hit && phases.includes(hit)) phase = hit;
     } else {
-      // 定时任务默认行为：按今天实际命中的阶段触发
-      if (today === oneMonthBefore(plan.due)) phase = '提前一个月';
-      if (today === plan.due) phase = '到期当天';
+      // 定时任务默认行为：仅"到期当天"与"提前一个月"（沿用原有两个节点，改用天数窗口判定）
+      if (hit === '到期当天' || hit === '提前一个月') phase = hit;
     }
     if (!phase) continue;
     // 仅红灯/黄灯才生成推送；亮绿灯的过滤掉（保持原 createOutcomeOrder 逻辑不变）
