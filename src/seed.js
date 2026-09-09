@@ -204,7 +204,7 @@ const SCREENSHOT_PLANS = [
 ].map((row, index) => ({
   id: `p_2025_${index + 1}`, teamId: 't_1', campaignId: 'cm_2025_4', campaignName: '泰国基地建设与运营',
   subCampaign: row[0], name: row[1], metric: row[2], milestone: row[3], due: row[4], ownerName: row[5],
-  collector: row[5], subCampaignOwner: row[5], orgUnitId: 'ou_1', level: '2级计划', score: 3,
+  collector: row[5], subCampaignOwner: row[5], orgUnitId: 'ou_1', level: '', score: 0,
   participants: [], progress: 0, status: '执行中', category: '泰国基地建设与运营', createdAt: '2026-01-01', updatedAt: '2026-01-01',
 }));
 
@@ -218,6 +218,12 @@ export async function migrateScreenshotContent() {
     await raw().query(`UPDATE \`${table}\` SET level = CASE level
       WHEN '里程碑' THEN '里程碑计划' WHEN '1级' THEN '1级计划' WHEN '2级' THEN '2级计划'
       WHEN '3级' THEN '3级计划' WHEN '4级' THEN '4级计划' ELSE level END`);
+  }
+  // 截图没有提供六条行动计划各自的分级，不能统一猜测为2级；首次升级时清空并交由用户选择。
+  const [levelAssignment] = await raw().query("SELECT value FROM meta WHERE `key` = 'planLevelAssignmentVersion'");
+  if (levelAssignment[0]?.value !== 'v1') {
+    await raw().query("UPDATE plans SET level = '', score = 0 WHERE teamId = 't_1' AND id LIKE 'p_2025_%'");
+    await raw().query("INSERT INTO meta (`key`, value) VALUES ('planLevelAssignmentVersion', 'v1') ON DUPLICATE KEY UPDATE value = 'v1'");
   }
   const [done] = await raw().query('SELECT value FROM meta WHERE `key` = ?', ['contentVersion']);
   if (done[0]?.value === version) return;

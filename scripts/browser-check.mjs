@@ -40,6 +40,9 @@ try {
     assert.ok(content.includes('涂料订单交付验收'));
     assert.ok(!content.includes('明确降本方案落地'));
     assert.ok(content.includes('李明月'));
+    if (username === 'admin' || username === 'limf') {
+      assert.deepEqual(await page.locator('.level-select').first().locator('option').allTextContents(), ['请选择计划分级', '里程碑计划', '1级计划', '2级计划', '3级计划', '4级计划']);
+    }
     await page.getByRole('button', { name: '+ 新建行动计划' }).click();
     assert.ok(await page.locator('#f-campaign option').count() > 0);
     assert.ok(await page.locator('#f-owner-name').count() === 1);

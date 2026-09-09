@@ -348,6 +348,13 @@
     };
     window.__newPlan = () => showPlanModal();
     window.__updProgress = (id) => showProgressModal(id);
+    window.__setPlanLevel = async (id, level) => {
+      if (!level) return;
+      try {
+        await req('PUT', `/plans/${id}`, { level, score: levelScore(level) });
+        toast('计划分级已保存'); pagePlans();
+      } catch (e) { toast(e.message, 'red'); pagePlans(); }
+    };
   }
 
   function campaignName(p) {
@@ -360,7 +367,7 @@
       <td style="font-weight:600;min-width:180px;">${esc(campaignName(p))}</td>
       <td style="min-width:145px;">${esc(p.subCampaign || p.name)}</td>
       <td style="min-width:230px;">${esc(p.name)}</td>
-      <td><span class="tag blue">${esc(planLevelLabel(p.level))}</span></td>
+      <td>${planLevelControl(p)}</td>
       <td style="min-width:200px;">${esc(p.metric || '-')}</td>
       <td style="min-width:220px;">${esc(p.milestone || '-')}</td>
       <td>${esc(p.due || '-')}</td><td>${esc(p.completedAt || '-')}</td><td>${esc(p.ownerName || userName(p.owner))}</td>
@@ -370,7 +377,16 @@
   }
 
   function planLevelLabel(level) {
-    return ['里程碑计划', '1级计划', '2级计划', '3级计划', '4级计划'].includes(level) ? level : '3级计划';
+    return ['里程碑计划', '1级计划', '2级计划', '3级计划', '4级计划'].includes(level) ? level : '未分级';
+  }
+
+  function planLevelControl(plan) {
+    const levels = ['里程碑计划', '1级计划', '2级计划', '3级计划', '4级计划'];
+    if (!allowed('plan.edit')) return `<span class="tag ${plan.level ? 'blue' : 'gray'}">${esc(planLevelLabel(plan.level))}</span>`;
+    return `<select class="level-select" aria-label="${esc(plan.subCampaign || plan.name)}计划分级" onchange="window.__setPlanLevel('${plan.id}', this.value)">
+      <option value="" ${plan.level ? '' : 'selected'}>请选择计划分级</option>
+      ${levels.map(level => `<option value="${level}" ${plan.level === level ? 'selected' : ''}>${level}</option>`).join('')}
+    </select>`;
   }
 
   function completionTag(plan) {
