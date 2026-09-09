@@ -157,15 +157,37 @@ function oneMonthBefore(dateText) {
   return `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(Math.min(day, lastDay)).padStart(2, '0')}`;
 }
 
-export async function runDueReminders(at = new Date(), teamId = null) {
+// 在 'YYYY-MM-DD' 字符串日期上加 n 天，返回同格式字符串
+function addDays(dateText, n) {
+  const [y, m, d] = dateText.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + n);
+  return localDate(dt);
+}
+
+// 节点提醒支持的阶段（顺序即界面展示顺序）
+export const REMINDER_PHASES = ['提前一个月', '提前一周', '提前三天', '到期当天'];
+
+export async function runDueReminders(at = new Date(), teamId = null, phases = null) {
   const today = localDate(at);
   const plans = await find('plans', plan => (!teamId || plan.teamId === teamId) && plan.due && plan.status !== '已取消');
   for (const plan of plans) {
     const campaign = await findOne('campaigns', row => row.id === plan.campaignId);
     const recipients = recipientLabels(plan, campaign);
     let phase = null;
-    if (today === oneMonthBefore(plan.due)) phase = '提前一个月';
-    if (today === plan.due) phase = '到期当天';
+    if (Array.isArray(phases) && phases.length) {
+      // 手动选中阶段：判断该计划的 due 是否落在所选阶段的对应目标日
+      for (const ph of phases) {
+        if (ph === '提前一个月' && oneMonthBefore(plan.due) === today) { phase = ph; break; }
+        if (ph === '提前一周' && plan.due === addDays(today, 7)) { phase = ph; break; }
+        if (ph === '提前三天' && plan.due === addDays(today, 3)) { phase = ph; break; }
+        if (ph === '到期当天' && plan.due === today) { phase = ph; break; }
+      }
+    } else {
+      // 定时任务默认行为：按今天实际命中的阶段触发
+      if (today === oneMonthBefore(plan.due)) phase = '提前一个月';
+      if (today === plan.due) phase = '到期当天';
+    }
     if (phase) await pushNotice({
       title: `【节点提醒·${phase}】${plan.subCampaign || plan.name}`,
       content: `所属必胜战役：${campaign?.name || plan.campaignName || '-'}；里程碑：${plan.milestone || '-'}；完成度：${plan.progress || 0}%`,

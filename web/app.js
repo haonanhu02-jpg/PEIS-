@@ -546,11 +546,42 @@
           <button class="btn g sm" style="margin-top:12px;" onclick="window.__runCycle('${c.cadence}')">触发${esc(c.period)}推送</button>
         </div>`).join('')}
       </div>
-      <div class="filters" style="margin-top:18px;"><button class="btn p sm" onclick="window.__runCycle('reminders')">检查提前一个月/到期当天节点</button><button class="btn g sm" onclick="window.__runCycle('weekly')">触发周推送</button><button class="btn g sm" onclick="window.__runCycle('biweekly')">触发双周推送</button></div>
+      <div class="filters" style="margin-top:18px;">
+        <button class="btn p sm" id="btn-check-toggle" onclick="window.__toggleCheck()">检查</button>
+        <button class="btn g sm" onclick="window.__runCycle('weekly')">触发周推送</button>
+        <button class="btn g sm" onclick="window.__runCycle('biweekly')">触发双周推送</button>
+        <div id="check-panel" class="check-panel" style="display:none;">
+          <div class="check-opts">
+            <label><input type="checkbox" class="chk-phase" value="提前一个月"> 提前一个月</label>
+            <label><input type="checkbox" class="chk-phase" value="提前一周"> 提前一周</label>
+            <label><input type="checkbox" class="chk-phase" value="提前三天"> 提前三天</label>
+            <label><input type="checkbox" class="chk-phase" value="到期当天"> 到期当天</label>
+          </div>
+          <div class="check-actions">
+            <button class="btn p sm" onclick="window.__runCheck()">执行检查</button>
+            <button class="btn sm" onclick="window.__toggleCheck(false)">收起</button>
+          </div>
+        </div>
+      </div>
       <div class="section-title">最近推送 <span class="line"></span></div>
       <table><thead><tr><th>时间</th><th>渠道</th><th>标题</th><th>内容</th><th>接收对象</th><th>状态</th></tr></thead><tbody>${pushLogs.map(x => `<tr><td>${esc((x.at || '').slice(0,16).replace('T',' '))}</td><td>${esc(x.channel)}</td><td>${esc(x.title)}</td><td>${esc(x.content)}</td><td>${esc((x.toUserIds || []).join('、'))}</td><td>${esc(x.status || '-')}</td></tr>`).join('') || '<tr><td colspan="6" class="empty">暂无推送</td></tr>'}</tbody></table>`;
     window.__runCycle = async (cadence) => {
       try { await req('POST', `/cycles/${cadence}/run`); toast('已触发周期推送'); pageCycles(); } catch (e) { toast(e.message, 'red'); }
+    };
+    window.__toggleCheck = (show) => {
+      const panel = document.getElementById('check-panel');
+      if (!panel) return;
+      panel.style.display = show === false ? 'none' : (panel.style.display === 'none' ? 'block' : 'none');
+    };
+    window.__runCheck = async () => {
+      const checked = [...document.querySelectorAll('.chk-phase:checked')].map((c) => c.value);
+      if (!checked.length) { toast('请至少选择一个检查节点', 'red'); return; }
+      try {
+        await req('POST', '/cycles/reminders/run', { phases: checked });
+        toast('已触发节点检查：' + checked.join('、'));
+        window.__toggleCheck(false);
+        pageCycles();
+      } catch (e) { toast(e.message, 'red'); }
     };
   }
 

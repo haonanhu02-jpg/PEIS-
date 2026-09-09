@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import { auth, requirePerm, signToken, orgScope, teamScope, getUserTeams } from './auth.js';
 import { config } from './config.js';
 import { findOne, find, all, insert, update, remove, nextId, now } from './db.js';
-import { calcLight, refreshAllLights, computeRanking, pushWarnings, pushCycleSummary, createOutcomeOrder, runDueReminders, pushKeyNodeUpdate } from './engine.js';
+import { calcLight, refreshAllLights, computeRanking, pushWarnings, pushCycleSummary, createOutcomeOrder, runDueReminders, pushKeyNodeUpdate, REMINDER_PHASES } from './engine.js';
 
 const router = express.Router();
 const PLAN_LEVELS = ['里程碑计划', '1级计划', '2级计划', '3级计划', '4级计划'];
@@ -393,8 +393,10 @@ router.get('/cycles', auth, async (req, res) => {
 });
 // 触发周期推送（日/周/月/季/年）
 router.post('/cycles/:cadence/run', auth, requirePerm('plan.edit'), async (req, res) => {
-  if (req.params.cadence === 'reminders') await runDueReminders(new Date(), curTeam(req));
-  else await pushCycleSummary(req.params.cadence, curTeam(req));
+  if (req.params.cadence === 'reminders') {
+    const phases = Array.isArray(req.body?.phases) ? req.body.phases.filter(p => REMINDER_PHASES.includes(p)) : null;
+    await runDueReminders(new Date(), curTeam(req), phases && phases.length ? phases : null);
+  } else await pushCycleSummary(req.params.cadence, curTeam(req));
   ok(res, { ran: req.params.cadence, at: now() });
 });
 

@@ -180,8 +180,13 @@ tr:hover td { background: #fafbfc; }
 .light-dot.yellow { background: var(--yellow); }
 .light-dot.green { background: var(--green); }
 .empty { text-align:center; color: var(--gray-500); padding: 40px; font-size: 13px; }
-.filters { display:flex; gap: 10px; margin-bottom: 16px; flex-wrap:wrap; }
+.filters { display:flex; gap: 10px; margin-bottom: 16px; flex-wrap:wrap; align-items:flex-start; }
 .filters select { padding: 7px 12px; border:1px solid var(--gray-300); border-radius: 6px; background:#fff; }
+.check-panel { flex-basis:100%; background: var(--gray-100); border:1px solid var(--gray-300); border-radius: 8px; padding: 14px 16px; }
+.check-opts { display:flex; gap: 18px; flex-wrap:wrap; }
+.check-opts label { display:flex; align-items:center; gap:6px; font-size: 13px; color: var(--gray-700); cursor:pointer; }
+.check-opts input { width:15px; height:15px; accent-color: var(--primary); cursor:pointer; }
+.check-actions { margin-top: 12px; display:flex; gap: 10px; }
 .trend { display:flex; align-items:center; gap:8px; }
 .bar { height:6px; background:var(--primary); border-radius:3px; }
 
