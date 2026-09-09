@@ -211,6 +211,8 @@ const SCREENSHOT_PLANS = [
 // One-time content migration based only on the supplied screenshots.
 export async function migrateScreenshotContent() {
   const version = 'screenshot-template-v3';
+  // 修正已初始化数据库中的历史错别字，避免只修改种子数据后线上仍显示旧值。
+  await raw().query("UPDATE campaigns SET chiefName = '曹海滨' WHERE chiefName = '曹海宾'");
   const [done] = await raw().query('SELECT value FROM meta WHERE `key` = ?', ['contentVersion']);
   if (done[0]?.value === version) return;
   const conn = await raw().getConnection();
