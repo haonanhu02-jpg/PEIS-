@@ -304,6 +304,7 @@ router.post('/plans', auth, validateTeamWrite, requirePerm('plan.edit'), async (
 router.put('/plans/:id', auth, validateTeamWrite, async (req, res) => {
   const b = body(req);
   if (b.level !== undefined && !PLAN_LEVELS.includes(b.level)) return fail(res, '计划分级无效', 400);
+  if (b._light !== undefined && !['red', 'yellow', 'green'].includes(b._light)) return fail(res, '亮灯状态无效', 400);
   // 本人只能改自己的进度（plan.edit_self），有 plan.edit 可改全部
   const plan = await findOne('plans', (p) => p.id === req.params.id);
   if (!plan) return fail(res, '未找到', 404);

@@ -4,8 +4,9 @@ import { findOne, find, all, insert, update, updateCollection, nextId, now } fro
 
 const DAY = 86400000;
 
-// 判断单个计划的红黄灯状态
+// 判断单个计划的红黄灯状态（若已手动选灯，优先使用手动值）
 export function calcLight(plan, today = new Date()) {
+  if (plan._lightManual) return { light: plan._light || 'green', reason: plan._lightReason || '手动设置' };
   if (plan.status === '已完成') return { light: 'green', reason: '已完成' };
   if (plan.status === '已取消') return { light: 'green', reason: '已取消' };
   const due = plan.due ? new Date(plan.due) : null;

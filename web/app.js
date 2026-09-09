@@ -169,6 +169,16 @@
     const map = { green: '<span class="tag green">● 绿灯</span>', yellow: '<span class="tag yellow">● 黄灯</span>', red: '<span class="tag red">● 红灯</span>' };
     return map[c] || map.green;
   }
+
+  function lightControl(plan) {
+    const map = { red: '红灯', yellow: '黄灯', green: '绿灯' };
+    const keys = ['red', 'yellow', 'green'];
+    const current = plan._light || 'green';
+    if (!allowed('plan.edit')) return lightTag(plan);
+    return `<select class="light-select" aria-label="${esc(plan.name)}亮灯情况" onchange="window.__setPlanLight('${plan.id}', this.value)">
+      ${keys.map(k => `<option value="${k}" ${current === k ? 'selected' : ''}>${map[k]}</option>`).join('')}
+    </select>`;
+  }
   function progressBar(p) {
     const done = Number(p.progress) >= 100 || p.status === '已完成';
     return `<div class="trend"><div class="progress ${done ? 'done' : ''}"><i style="width:${Math.min(100, Number(p.progress) || 0)}%"></i></div><span style="font-size:12px;color:#4a4a4a;">${p.progress || 0}%</span></div>`;
@@ -333,7 +343,7 @@
         <select id="fl-mine" onchange="window.__filterPlans()"><option value="">全部负责人</option><option value="1">我的计划</option></select>
         <button class="btn p sm" style="margin-left:auto;" onclick="window.__newPlan()">+ 新建行动计划</button>
       </div>
-      <div class="table-scroll"><table class="wide-table"><thead><tr><th>必胜战役</th><th>分解战役</th><th>行动计划</th><th>计划分级</th><th>衡量指标</th><th>里程碑事件</th><th>计划完成时间</th><th>实际完成时间</th><th>负责人</th><th>完成度</th><th>完成状态</th><th>红黄灯</th><th>操作</th></tr></thead>
+      <div class="table-scroll"><table class="wide-table"><thead><tr><th>必胜战役</th><th>分解战役</th><th>行动计划</th><th>计划分级</th><th>衡量指标</th><th>里程碑事件</th><th>计划完成时间</th><th>实际完成时间</th><th>负责人</th><th>完成度</th><th>完成状态</th><th>亮灯情况</th><th>操作</th></tr></thead>
       <tbody id="plan-tbody">${renderPlanRows(plans)}</tbody></table></div>`;
     window.__filterPlans = async () => {
       const campaignId = document.getElementById('fl-campaign').value;
@@ -369,6 +379,13 @@
         toast('计划分级已保存'); pagePlans();
       } catch (e) { toast(e.message, 'red'); pagePlans(); }
     };
+    window.__setPlanLight = async (id, light) => {
+      const labels = { red: '红灯', yellow: '黄灯', green: '绿灯' };
+      try {
+        await req('PUT', `/plans/${id}`, { _light: light, _lightReason: '手动设置', _lightManual: true });
+        toast(`已设为${labels[light]}`); pagePlans();
+      } catch (e) { toast(e.message, 'red'); pagePlans(); }
+    };
   }
 
   function campaignName(p) {
@@ -385,7 +402,7 @@
       <td style="min-width:200px;">${esc(p.metric || '-')}</td>
       <td style="min-width:220px;">${esc(p.milestone || '-')}</td>
       <td>${esc(p.due || '-')}</td><td>${esc(p.completedAt || '-')}</td><td>${esc(p.ownerName || userName(p.owner))}</td>
-      <td>${progressBar(p)}</td><td>${completionTag(p)}</td><td>${lightTag(p)}</td>
+      <td>${progressBar(p)}</td><td>${completionTag(p)}</td><td>${lightControl(p)}</td>
       <td>
         <button class="btn g sm" onclick="window.__updProgress('${p.id}')">更新进度</button>
         ${allowed('plan.edit') ? `<button class="btn p sm" onclick="window.__editPlan('${p.id}')">修改</button><button class="btn r sm" onclick="window.__deletePlan('${p.id}')">删除</button>` : ''}

@@ -179,6 +179,7 @@ const TABLES = {
     category: { type: 'text' },
     _light: { type: 'text' },
     _lightReason: { type: 'text' },
+    _lightManual: { type: 'bool', default: false },
   },
   progressLogs: {
     id: { type: 'text', primary: true },
@@ -277,7 +278,7 @@ const INDEXES = [
 // JSON 字段（存储为字符串，读取时反序列化）
 const JSON_FIELDS = ['participants', 'toUserIds', 'perms', 'allocations'];
 // 布尔字段（TINYINT(1)）
-const BOOL_FIELDS = new Set(['enabled']);
+const BOOL_FIELDS = new Set(['enabled', '_lightManual']);
 
 function typeSql(def) {
   switch (def.type) {
