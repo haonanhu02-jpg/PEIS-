@@ -112,6 +112,7 @@
       { group: '会议与周期', items: [
         { id: 'meetings', ico: '📅', label: '会议机制' },
         { id: 'cycles', ico: '🔁', label: '运行节奏' },
+        { id: 'push-details', ico: '📨', label: '推送详情' },
       ] },
       { group: '考核与组织', items: [
         { id: 'rewards', ico: '🏆', label: '奖惩考核' },
@@ -585,6 +586,84 @@
     };
   }
 
+  // ===== 推送详情 =====
+  // 显示当前团队所有亮红灯/黄灯的计划，完整呈现 12 字段。
+  async function pagePushDetails() {
+    setPage('推送详情', '亮红灯/黄灯计划的完整推送内容');
+    activeNav('push-details');
+    const body = document.getElementById('page-body');
+    body.innerHTML = `<div class="empty">加载中...</div>`;
+    let items = [];
+    try {
+      items = await req('GET', '/push-details');
+    } catch (e) {
+      body.innerHTML = `<div class="empty">加载失败：${esc(e.message)}</div>`;
+      return;
+    }
+    const reds = items.filter((x) => x.light === 'red');
+    const yellows = items.filter((x) => x.light === 'yellow');
+    const fields = [
+      ['campaignName', '必胜战役'],
+      ['subCampaign', '分解战役'],
+      ['planName', '行动计划'],
+      ['level', '计划分级'],
+      ['metric', '衡量指标'],
+      ['milestone', '里程碑事件'],
+      ['due', '计划完成时间'],
+      ['completedAt', '实际完成时间'],
+      ['ownerName', '负责人'],
+      ['progress', '完成度'],
+      ['status', '完成状态'],
+      ['light', '亮灯情况'],
+    ];
+    const renderCard = (it, idx) => {
+      const lightColor = it.light === 'red' ? '#dc2626' : '#d97706';
+      const lightBg = it.light === 'red' ? '#fef2f2' : '#fffbeb';
+      const lightLabel = it.light === 'red' ? '🔴 红灯' : '🟡 黄灯';
+      const phaseTag = it.phase && it.phase !== '-' ? `<span class="tag blue">${esc(it.phase)}</span>` : '';
+      return `<div class="pd-card" style="border-left:3px solid ${lightColor};">
+        <div class="pd-head" style="background:${lightBg};">
+          <div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span class="pd-light" style="color:${lightColor};background:#fff;">${lightLabel}</span>
+              <strong style="font-size:15px;">${esc(it.planName || '-')}</strong>
+              ${phaseTag}
+            </div>
+            <div style="margin-top:6px;font-size:12px;color:var(--gray-700);">
+              ${esc(it.campaignName)} / ${esc(it.subCampaign)} · 负责人 ${esc(it.ownerName)}
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--gray-700);">#${idx + 1}</div>
+        </div>
+        <div class="pd-grid">
+          ${fields.map(([k, label]) => {
+            const v = it[k] ?? '-';
+            const isLight = k === 'light';
+            const tag = isLight ? `<span class="tag ${v === 'red' ? 'red' : 'yellow'}" style="font-weight:600;">${v === 'red' ? '红灯' : v === 'yellow' ? '黄灯' : v}</span>` : esc(v);
+            return `<div class="pd-cell"><div class="pd-label">${label}</div><div class="pd-val">${tag}</div></div>`;
+          }).join('')}
+          ${it.lightReason && it.lightReason !== '-' ? `<div class="pd-cell" style="grid-column:span 3;"><div class="pd-label">亮灯原因</div><div class="pd-val" style="color:${lightColor};">${esc(it.lightReason)}</div></div>` : ''}
+        </div>
+      </div>`;
+    };
+    body.innerHTML = `
+      <div class="filters" style="margin-bottom:12px;">
+        <span class="tag red">🔴 红灯 ${reds.length}</span>
+        <span class="tag yellow">🟡 黄灯 ${yellows.length}</span>
+        <button class="btn g sm" onclick="window.__runPushNow()">立即触发推送</button>
+      </div>
+      ${items.length === 0 ? '<div class="empty">当前无红灯/黄灯计划</div>' : items.map(renderCard).join('')}
+    `;
+    // 自带触发逻辑，不依赖 pageCycles 里定义的 __runCycle（避免未访问运行节奏页时按钮失效）
+    window.__runPushNow = async () => {
+      try {
+        await req('POST', '/cycles/reminders/run', { phases: ['提前一个月', '提前一周', '提前三天', '到期当天'] });
+        toast('已按红黄灯规则触发推送');
+        pagePushDetails();
+      } catch (e) { toast(e.message, 'red'); }
+    };
+  }
+
   async function pageRewards() {
     setPage('奖惩考核', '完成/逾期触发 / 填写责任单 / 审批 / 人力执行');
     activeNav('rewards');
@@ -705,6 +784,7 @@
     rewards: pageRewards,
     warnings: pageWarnings,
     org: pageOrg,
+    'push-details': pagePushDetails,
   };
 
   async function router() {

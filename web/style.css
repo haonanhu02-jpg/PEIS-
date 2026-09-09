@@ -190,6 +190,17 @@ tr:hover td { background: #fafbfc; }
 .trend { display:flex; align-items:center; gap:8px; }
 .bar { height:6px; background:var(--primary); border-radius:3px; }
 
+/* 推送详情卡片 */
+.pd-card { background:#fff; border-radius:8px; box-shadow: var(--shadow); margin-bottom: 14px; overflow:hidden; }
+.pd-head { padding: 14px 18px; display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid var(--gray-200); }
+.pd-light { display:inline-block; padding:3px 10px; border-radius:14px; font-size:12px; font-weight:600; border:1px solid currentColor; }
+.pd-grid { display:grid; grid-template-columns: repeat(3, 1fr); gap:0; padding: 0; }
+.pd-cell { padding: 12px 18px; border-bottom:1px solid var(--gray-200); border-right:1px solid var(--gray-200); }
+.pd-cell:nth-child(3n) { border-right:none; }
+.pd-label { font-size:11px; color: var(--gray-700); margin-bottom:6px; }
+.pd-val { font-size:13px; color: var(--gray-900); word-break:break-all; }
+@media (max-width: 980px) { .pd-grid { grid-template-columns: repeat(2, 1fr); } .pd-cell:nth-child(3n) { border-right:1px solid var(--gray-200); } .pd-cell:nth-child(2n) { border-right:none; } }
+
 /* 通知 */
 .toast { position:fixed; top:70px; right:24px; background:#fff; border-left:4px solid var(--green); box-shadow: var(--shadow); padding: 14px 18px; border-radius: 6px; z-index:200; animation: slidein .2s; max-width: 340px; }
 @keyframes slidein { from { transform: translateX(40px); opacity:0; } to { transform:none; opacity:1; } }

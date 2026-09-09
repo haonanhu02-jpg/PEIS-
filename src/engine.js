@@ -82,7 +82,7 @@ export async function computeRanking(groupBy = 'owner', teamId) {
 }
 
 // 构造推送内容（钉钉/致信），仅记录 pushLog（企业本地部署模拟推送）
-export async function pushNotice({ title, content, toUserIds = [], channel = '站内', color = 'red', teamId = null, eventKey = null }) {
+export async function pushNotice({ title, content, toUserIds = [], channel = '站内', color = 'red', teamId = null, eventKey = null, detail = null }) {
   if (eventKey && await findOne('pushLogs', row => row.eventKey === eventKey)) return null;
   const log = {
     id: `push_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
@@ -95,6 +95,7 @@ export async function pushNotice({ title, content, toUserIds = [], channel = '�
     at: new Date().toISOString(),
     enabled: channel === '站内' || (channel === '钉钉' ? config.DINGTALK_ENABLED : config.ZIXIN_ENABLED),
     eventKey,
+    detail,
     status: (channel === '站内' || (channel === '钉钉' ? config.DINGTALK_ENABLED : config.ZIXIN_ENABLED)) ? '已记录' : '渠道未启用',
   };
   await insert('pushLogs', log);
@@ -106,6 +107,34 @@ export async function pushNotice({ title, content, toUserIds = [], channel = '�
 function recipientLabels(plan, campaign) {
   return [...new Set([plan.collector, campaign?.chief || campaign?.chiefName, plan.subCampaignOwner]
     .filter(Boolean))];
+}
+
+// 把当前计划完整字段打包，供推送详情与红黄灯推送使用（不依赖后端其他函数）
+export function buildPlanDetail(plan, campaign, light, lightReason, phase) {
+  // 完成状态展示口径与前端 completionTag 保持一致
+  const progress = Number(plan.progress) || 0;
+  const done = progress >= 100 || plan.status === '已完成';
+  let statusText = plan.status || '未开始';
+  if (done) {
+    if (plan.completedAt && plan.due) statusText = plan.completedAt <= plan.due ? '按时完成' : '延误完成';
+    else statusText = '已完成';
+  }
+  return {
+    campaignName: campaign?.name || plan.campaignName || '-',         // 必胜战役
+    subCampaign: plan.subCampaign || '-',                             // 分解战役
+    planName: plan.name || '-',                                       // 行动计划
+    level: plan.level || '未分级',                                     // 计划分级
+    metric: plan.metric || '-',                                       // 衡量指标
+    milestone: plan.milestone || '-',                                 // 里程碑事件
+    due: plan.due || '-',                                             // 计划完成时间
+    completedAt: plan.completedAt || '-',                             // 实际完成时间
+    ownerName: plan.ownerName || plan.collector || '-',               // 负责人
+    progress: `${progress}%`,                                        // 完成度
+    status: statusText,                                               // 完成状态
+    light: light || '-',                                              // 亮灯情况
+    lightReason: lightReason || '-',                                  // 亮灯原因
+    phase: phase || '-',                                              // 命中阶段（节点提醒用）
+  };
 }
 
 export async function createOutcomeOrder(plan) {
@@ -188,12 +217,19 @@ export async function runDueReminders(at = new Date(), teamId = null, phases = n
       if (today === oneMonthBefore(plan.due)) phase = '提前一个月';
       if (today === plan.due) phase = '到期当天';
     }
-    if (phase) await pushNotice({
-      title: `【节点提醒·${phase}】${plan.subCampaign || plan.name}`,
-      content: `所属必胜战役：${campaign?.name || plan.campaignName || '-'}；里程碑：${plan.milestone || '-'}；完成度：${plan.progress || 0}%`,
-      toUserIds: recipients, channel: '站内', color: phase === '到期当天' ? 'red' : 'yellow', teamId: plan.teamId,
-      eventKey: `due:${plan.id}:${phase}:${today}`,
-    });
+    if (!phase) continue;
+    // 仅红灯/黄灯才生成推送；亮绿灯的过滤掉（保持原 createOutcomeOrder 逻辑不变）
+    const { light, reason: lightReason } = calcLight(plan, at);
+    if (light === 'red' || light === 'yellow') {
+      const detail = buildPlanDetail(plan, campaign, light, lightReason, phase);
+      await pushNotice({
+        title: `【节点提醒·${phase}·${light === 'red' ? '红灯' : '黄灯'}】${plan.subCampaign || plan.name}`,
+        content: `所属必胜战役：${detail.campaignName}；里程碑：${detail.milestone}；完成度：${detail.progress}；亮灯：${light}（${lightReason}）`,
+        detail,
+        toUserIds: recipients, channel: '站内', color: light === 'red' ? 'red' : 'yellow', teamId: plan.teamId,
+        eventKey: `due:${plan.id}:${phase}:${today}`,
+      });
+    }
     await createOutcomeOrder(plan);
   }
 }
@@ -233,3 +269,6 @@ export async function pushCycleSummary(cycle, teamId) {
     await pushNotice({ title: '【月·完成率排名+奖惩】', content: `完成率排名：${ranking.slice(0, 5).map((r, i) => `${i + 1}.${r.name}(${r.completionRate}%)`).join(' ')}`, toUserIds: plans.map((p) => p.owner), channel: '钉钉', teamId });
   }
 }
+
+// 暴露给路由使用的辅助函数（推送详情页依赖）
+export { localDate, oneMonthBefore, addDays };
