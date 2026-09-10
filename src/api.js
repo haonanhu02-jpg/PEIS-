@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import { auth, requirePerm, signToken, orgScope, teamScope, getUserTeams } from './auth.js';
 import { config } from './config.js';
 import { findOne, find, all, insert, update, remove, nextId, now } from './db.js';
-import { calcLight, refreshAllLights, computeRanking, computeScoreRanking, pushWarnings, pushCycleSummary, createOutcomeOrder, runDueReminders, pushKeyNodeUpdate, REMINDER_PHASES, buildPlanDetail, localDate, oneMonthBefore, addDays, matchPhaseByDaysLeft } from './engine.js';
+import { calcLight, refreshAllLights, computeRanking, computePlanSubScores, computeScoreRanking, pushWarnings, pushCycleSummary, createOutcomeOrder, runDueReminders, pushKeyNodeUpdate, REMINDER_PHASES, buildPlanDetail, localDate, oneMonthBefore, addDays, matchPhaseByDaysLeft } from './engine.js';
 
 const router = express.Router();
 const PLAN_LEVELS = ['里程碑计划', '1级计划', '2级计划', '3级计划', '4级计划'];
@@ -258,7 +258,7 @@ router.put('/campaigns/:id', auth, validateTeamWrite, requirePerm('strategy.edit
 router.get('/plans', auth, async (req, res) => {
   const teamId = curTeam(req);
   const scope = await orgScope(req.user, teamId);
-  let plans = (await all('plans')).filter((p) => visiblePlan(req, p, scope));
+  let plans = (await computePlanSubScores(teamId)).filter((p) => visiblePlan(req, p, scope));
   // 过滤
   const { level, status, campaignId, light, mine } = req.query;
   if (level) plans = plans.filter((p) => p.level === level);

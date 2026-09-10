@@ -228,7 +228,7 @@
         </div>
         <div>
           <div class="section-title">分值排名 <span class="line"></span></div>
-          <table><thead><tr><th>#</th><th>负责人</th><th>总得分</th><th>计划数</th></tr></thead><tbody>
+          <table><thead><tr><th>#</th><th>总战役</th><th>总得分</th><th>计划数</th></tr></thead><tbody>
             ${(d.scoreRanking || []).map((r, i) => `<tr>
               <td>${i + 1}</td>
               <td>${esc(r.name)}</td>
@@ -241,7 +241,7 @@
               <td>${r.planCount}</td>
             </tr>`).join('') || '<tr><td colspan="4" class="empty">暂无数据</td></tr>'}
           </tbody></table>
-          <div class="field-tip">得分 = Σ(奖惩标准分级分值 × 完成度)：里程碑计划 5 分 / 1级 4 分 / 2级 3 分 / 3级 2 分 / 4级 1 分（悬停得分可看明细）</div>
+          <div class="field-tip">每个总战役满分 100；计划权重 = 该等级标准分 ÷ 本总战役标准分总和 × 100；子得分 = 计划权重 × 完成度（悬停得分可看明细）</div>
         </div>
       </div>
       <div style="margin-top:20px;">
@@ -362,7 +362,7 @@
         <select id="fl-mine" onchange="window.__filterPlans()"><option value="">全部负责人</option><option value="1">我的计划</option></select>
         <button class="btn p sm" style="margin-left:auto;" onclick="window.__newPlan()">+ 新建行动计划</button>
       </div>
-      <div class="table-scroll"><table class="wide-table"><thead><tr><th>必胜战役</th><th>分解战役</th><th>行动计划</th><th>计划分级</th><th>衡量指标</th><th>里程碑事件</th><th>计划完成时间</th><th>实际完成时间</th><th>负责人</th><th>完成度</th><th>完成状态</th><th>亮灯情况</th><th>操作</th></tr></thead>
+      <div class="table-scroll"><table class="wide-table"><thead><tr><th>必胜战役</th><th>分解战役</th><th>行动计划</th><th>计划分级</th><th>衡量指标</th><th>里程碑事件</th><th>计划完成时间</th><th>实际完成时间</th><th>子得分</th><th>负责人</th><th>完成度</th><th>完成状态</th><th>亮灯情况</th><th>操作</th></tr></thead>
       <tbody id="plan-tbody">${renderPlanRows(plans)}</tbody></table></div>`;
     window.__filterPlans = async () => {
       const campaignId = document.getElementById('fl-campaign').value;
@@ -412,7 +412,7 @@
   }
 
   function renderPlanRows(plans) {
-    if (!plans.length) return '<tr><td colspan="13" class="empty">暂无行动计划</td></tr>';
+    if (!plans.length) return '<tr><td colspan="14" class="empty">暂无行动计划</td></tr>';
     return plans.map((p) => `<tr>
       <td style="font-weight:600;min-width:180px;">${esc(campaignName(p))}</td>
       <td style="min-width:145px;">${esc(p.subCampaign || p.name)}</td>
@@ -420,7 +420,9 @@
       <td>${planLevelControl(p)}</td>
       <td style="min-width:200px;">${esc(p.metric || '-')}</td>
       <td style="min-width:220px;">${esc(p.milestone || '-')}</td>
-      <td>${esc(p.due || '-')}</td><td>${esc(p.completedAt || '-')}</td><td>${esc(p.ownerName || userName(p.owner))}</td>
+      <td>${esc(p.due || '-')}</td><td>${esc(p.completedAt || '-')}</td>
+      <td title="权重 ${p.weightedScore || 0} 分 × 完成度 ${Number(p.progress) || 0}%"><span class="tag blue">${Number(p.subScore || 0).toFixed(2)} 分</span></td>
+      <td>${esc(p.ownerName || userName(p.owner))}</td>
       <td>${progressBar(p)}</td><td>${completionTag(p)}</td><td>${lightControl(p)}</td>
       <td>
         <button class="btn g sm" onclick="window.__updProgress('${p.id}')">更新进度</button>

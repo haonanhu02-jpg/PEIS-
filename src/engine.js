@@ -99,31 +99,69 @@ export async function computeRanking(groupBy = 'owner', teamId) {
   return list;
 }
 
-// 分值排名：按负责人汇总，总分 = Σ(奖惩标准分级分值 × 计划完成度%)
-// 分值来源 planLevels：里程碑计划5分 / 1级4分 / 2级3分 / 3级2分 / 4级1分
-// 负责人归组：优先按 owner(用户ID)，为空时按 ownerName(姓名，如截图导入的计划)
-export async function computeScoreRanking(teamId) {
+// 每个总战役固定 100 分。同一总战役内，行动计划按奖惩标准分值归一化为权重，
+// 子得分 = 计划权重分 × 完成度。未分级计划的权重与子得分均为 0。
+export async function computePlanSubScores(teamId) {
   const plans = (await all('plans')).filter((p) => p.status !== '已取消' && (!teamId || p.teamId === teamId));
   const levels = await all('planLevels');
   const scoreOf = (level) => levels.find((l) => l.level === level)?.score || 0;
+  const baseTotals = new Map();
+  for (const plan of plans) {
+    const campaignKey = plan.campaignId || `name:${plan.campaignName || '未归属总战役'}`;
+    baseTotals.set(campaignKey, (baseTotals.get(campaignKey) || 0) + scoreOf(plan.level));
+  }
+  return plans.map((plan) => {
+    const campaignKey = plan.campaignId || `name:${plan.campaignName || '未归属总战役'}`;
+    const levelScore = scoreOf(plan.level);
+    const totalBase = baseTotals.get(campaignKey) || 0;
+    const weightedScore = totalBase > 0 ? (levelScore / totalBase) * 100 : 0;
+    const progress = Math.max(0, Math.min(100, Number(plan.progress) || 0));
+    return {
+      ...plan,
+      levelScore,
+      weightedScore: Math.round(weightedScore * 100) / 100,
+      subScore: Math.round(weightedScore * progress) / 100,
+    };
+  });
+}
+
+// 分值排名：按总战役汇总各行动计划的子得分，每个总战役满分 100。
+export async function computeScoreRanking(teamId) {
+  const plans = await computePlanSubScores(teamId);
+  const campaigns = (await all('campaigns')).filter((campaign) => !teamId || campaign.teamId === teamId);
   const acc = new Map();
+  // 战役清单中尚未分解行动计划的总战役也参与排名，得分为 0。
+  for (const campaign of campaigns) {
+    acc.set(campaign.id, {
+      id: campaign.id,
+      name: campaign.name || '未命名总战役',
+      planCount: 0,
+      totalScore: 0,
+      fullScore: 100,
+      detail: [],
+    });
+  }
   for (const p of plans) {
-    const key = p.owner ? `u:${p.owner}` : `n:${p.ownerName || '未分配'}`;
-    if (!acc.has(key)) acc.set(key, { id: p.owner || null, name: p.ownerName || '', planCount: 0, totalScore: 0, detail: [] });
+    const key = p.campaignId || `name:${p.campaignName || '未归属总战役'}`;
+    const campaign = campaigns.find((c) => c.id === p.campaignId);
+    if (!acc.has(key)) acc.set(key, {
+      id: p.campaignId || null,
+      name: campaign?.name || p.campaignName || '未归属总战役',
+      planCount: 0,
+      totalScore: 0,
+      fullScore: 100,
+      detail: [],
+    });
     const x = acc.get(key);
-    const base = scoreOf(p.level);
-    const progress = Number(p.progress) || 0;
-    const gained = Math.round(base * progress) / 100; // 分值 × 完成度%，保留两位
     x.planCount += 1;
-    x.totalScore += gained;
-    if (base > 0) x.detail.push(`${p.name || p.subCampaign || p.id}（${p.level}）：${progress}%×${base}分=${gained}分`);
-    if (!x.name && p.ownerName) x.name = p.ownerName;
+    x.totalScore += p.subScore;
+    if (p.levelScore > 0) x.detail.push(
+      `${p.subCampaign || p.name || p.id}（${p.level}）：权重 ${p.weightedScore} 分 × 完成度 ${Number(p.progress) || 0}% = ${p.subScore} 分`,
+    );
   }
   const list = [...acc.values()];
   for (const x of list) {
     x.totalScore = Math.round(x.totalScore * 100) / 100;
-    if (x.id) x.name = (await findOne('users', (u) => u.id === x.id))?.name || x.name || x.id;
-    if (!x.name) x.name = '未分配';
   }
   list.sort((a, b) => b.totalScore - a.totalScore);
   return list;
