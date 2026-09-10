@@ -56,6 +56,7 @@ try {
     const content = await page.locator('#page-body').innerText();
     assert.ok(content.includes('计划分级'));
     assert.ok(content.includes('实际完成时间'));
+    assert.ok(content.includes('加权得分'));
     assert.ok(content.includes('涂料订单交付验收'));
     assert.ok(!content.includes('明确降本方案落地'));
     assert.ok(content.includes('李明月'));

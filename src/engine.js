@@ -110,7 +110,7 @@ export async function computeRanking(groupBy = 'owner', teamId) {
 }
 
 // 每个总战役固定 100 分。同一总战役内，行动计划按奖惩标准分值归一化为权重，
-// 子得分 = 计划权重分 × 完成度。未分级计划的权重与子得分均为 0。
+// 加权得分 = 计划权重分 × 完成度。未分级计划的权重与加权得分均为 0。
 export async function computePlanSubScores(teamId) {
   const plans = (await all('plans')).filter((p) => p.status !== '已取消' && (!teamId || p.teamId === teamId));
   const levels = await all('planLevels');
@@ -135,7 +135,7 @@ export async function computePlanSubScores(teamId) {
   });
 }
 
-// 分值排名：按总战役汇总各行动计划的子得分，每个总战役满分 100。
+// 分值排名：按总战役汇总各行动计划的加权得分，每个总战役满分 100。
 export async function computeScoreRanking(teamId) {
   const plans = await computePlanSubScores(teamId);
   const campaigns = (await all('campaigns')).filter((campaign) => !teamId || campaign.teamId === teamId);
