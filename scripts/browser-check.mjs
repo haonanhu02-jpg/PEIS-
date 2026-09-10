@@ -28,6 +28,25 @@ try {
       }
     }
     if (username === 'admin') {
+      await page.goto('http://127.0.0.1:9280/#/strategies');
+      await page.reload({ waitUntil: 'networkidle' });
+      assert.ok(await page.getByRole('button', { name: '修改' }).count() > 0);
+      assert.ok(await page.getByRole('button', { name: '删除' }).count() > 0);
+      await page.getByRole('button', { name: '修改' }).first().click();
+      assert.ok((await page.locator('.modal-h').innerText()).includes('修改战略规划'));
+      await page.getByRole('button', { name: '取消', exact: true }).click();
+      await page.goto('http://127.0.0.1:9280/#/campaigns');
+      await page.reload({ waitUntil: 'networkidle' });
+      assert.ok(await page.getByRole('button', { name: '修改' }).count() > 0);
+      assert.ok(await page.getByRole('button', { name: '删除' }).count() > 0);
+      await page.getByRole('button', { name: '修改' }).first().click();
+      assert.ok((await page.locator('.modal-h').innerText()).includes('修改战役'));
+      await page.getByRole('button', { name: '取消', exact: true }).click();
+      await page.goto('http://127.0.0.1:9280/#/dashboard');
+      await page.reload({ waitUntil: 'networkidle' });
+      const dashboardText = await page.locator('#page-body').innerText();
+      assert.ok(dashboardText.includes('总战役'));
+      assert.ok(await page.getByRole('columnheader', { name: '战役', exact: true }).count() > 0);
       await page.locator('#team-select').selectOption('t_2');
       await page.waitForLoadState('networkidle');
       assert.equal(await page.locator('#team-select').inputValue(), 't_2');

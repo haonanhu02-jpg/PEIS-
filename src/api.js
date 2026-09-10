@@ -164,7 +164,7 @@ router.get('/dashboard', auth, async (req, res) => {
     if (p.status === '已完成') completed += 1;
   }
   const total = plans.length || 1;
-  const ranking = (await computeRanking('owner', teamId)).slice(0, 8);
+  const ranking = (await computeRanking('campaign', teamId)).slice(0, 8);
   const scoreRanking = (await computeScoreRanking(teamId)).slice(0, 8);
   const warnings = (await all('warnings')).filter((w) => visiblePlan(req, w, scope)).slice(0, 20);
   ok(res, {
@@ -214,6 +214,12 @@ router.put('/strategies/:id', auth, validateTeamWrite, requirePerm('strategy.edi
   if (!rec) return fail(res, '未找到', 404);
   ok(res, rec);
 });
+router.delete('/strategies/:id', auth, validateTeamWrite, requirePerm('strategy.edit'), async (req, res) => {
+  const children = await find('campaigns', (campaign) => campaign.strategyId === req.params.id && campaign.teamId === req.teamId);
+  if (children.length) return fail(res, `该战略下还有 ${children.length} 个战役，请先处理下级战役`, 409);
+  await remove('strategies', req.params.id);
+  ok(res, { id: req.params.id });
+});
 
 // 战略解码 / 战役（定策略：战役/班子/计划）
 router.get('/campaigns', auth, requirePerm('strategy.view'), async (req, res) => {
@@ -237,6 +243,7 @@ router.post('/campaigns', auth, validateTeamWrite, requirePerm('strategy.edit'),
     strategyId: b.strategyId || null,
     orgUnitId: b.orgUnitId || req.user.orgUnitId,
     chief: b.chief || req.user.id, // 主将
+    chiefName: b.chiefName || '',
     commander: b.commander || req.user.id, // 战将/班子
     period: b.period || '',
     status: b.status || '进行中',
@@ -252,6 +259,12 @@ router.put('/campaigns/:id', auth, validateTeamWrite, requirePerm('strategy.edit
   const rec = await update('campaigns', req.params.id, body(req));
   if (!rec) return fail(res, '未找到', 404);
   ok(res, rec);
+});
+router.delete('/campaigns/:id', auth, validateTeamWrite, requirePerm('strategy.edit'), async (req, res) => {
+  const children = await find('plans', (plan) => plan.campaignId === req.params.id && plan.teamId === req.teamId);
+  if (children.length) return fail(res, `该战役下还有 ${children.length} 条行动计划，请先处理下级计划`, 409);
+  await remove('campaigns', req.params.id);
+  ok(res, { id: req.params.id });
 });
 
 // 战役计划（分解策略/资源分级/组织保障 -> 输入PEIS系统）

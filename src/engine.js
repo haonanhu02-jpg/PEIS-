@@ -37,6 +37,9 @@ export async function refreshAllLights(teamId) {
         teamId: p.teamId,
         planId: p.id,
         planName: p.name,
+        campaignId: p.campaignId,
+        campaignName: p.campaignName,
+        subCampaign: p.subCampaign,
         owner: p.owner,
         orgUnitId: p.orgUnitId,
         level: p.level,
@@ -59,28 +62,33 @@ export async function refreshAllLights(teamId) {
   return warnings;
 }
 
-// 计算完成率排名（按计划负责人/组织单元，月考核，团队隔离）
+// 计算完成率排名（按总战役/负责人/组织单元，团队隔离）
 export async function computeRanking(groupBy = 'owner', teamId) {
   const plans = (await all('plans')).filter((p) => p.status !== '已取消' && (!teamId || p.teamId === teamId));
-  // 归组键：优先 owner(用户ID)，为空时回退 ownerName（截图导入的计划往往只有姓名）
-  const keyOf = (p) => (groupBy === 'orgUnit'
-    ? `ou:${p.orgUnitId}`
-    : (p.owner ? `u:${p.owner}` : `n:${p.ownerName || '未分配'}`));
+  const campaigns = (await all('campaigns')).filter((c) => !teamId || c.teamId === teamId);
+  const keyOf = (p) => groupBy === 'campaign'
+    ? (p.campaignId || `name:${p.campaignName || '未归属总战役'}`)
+    : (groupBy === 'orgUnit' ? `ou:${p.orgUnitId}` : (p.owner ? `u:${p.owner}` : `n:${p.ownerName || '未分配'}`));
   const acc = new Map();
+  if (groupBy === 'campaign') {
+    for (const campaign of campaigns) {
+      acc.set(campaign.id, { id: campaign.id, name: campaign.name, total: 0, completed: 0, progressSum: 0 });
+    }
+  }
   for (const p of plans) {
     const key = keyOf(p);
     if (!acc.has(key)) {
       acc.set(key, {
-        id: groupBy === 'orgUnit' ? p.orgUnitId : (p.owner || null),
-        name: groupBy === 'orgUnit' ? '' : (p.ownerName || ''),
+        id: groupBy === 'campaign' ? (p.campaignId || null) : (groupBy === 'orgUnit' ? p.orgUnitId : (p.owner || null)),
+        name: groupBy === 'campaign' ? (p.campaignName || '') : (groupBy === 'orgUnit' ? '' : (p.ownerName || '')),
         total: 0, completed: 0, progressSum: 0,
       });
     }
     const x = acc.get(key);
     x.total += 1;
-    if (p.status === '已完成') x.completed += 1;
+    if (p.status === '已完成' || Number(p.progress) >= 100) x.completed += 1;
     x.progressSum += Number(p.progress) || 0;
-    if (!x.name && p.ownerName) x.name = p.ownerName;
+    if (!x.name) x.name = groupBy === 'campaign' ? p.campaignName : p.ownerName;
   }
   const list = [...acc.values()].map((x) => ({
     ...x,
@@ -88,7 +96,9 @@ export async function computeRanking(groupBy = 'owner', teamId) {
     avgProgress: x.total ? Math.round(x.progressSum / x.total) : 0,
   }));
   for (const x of list) {
-    if (groupBy === 'owner') {
+    if (groupBy === 'campaign') {
+      x.name = campaigns.find((c) => c.id === x.id)?.name || x.name || '未归属总战役';
+    } else if (groupBy === 'owner') {
       if (x.id) x.name = (await findOne('users', (u) => u.id === x.id))?.name || x.name || x.id;
     } else {
       x.name = (await findOne('orgUnits', (u) => u.id === x.id))?.name || x.name || x.id;

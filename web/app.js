@@ -222,7 +222,7 @@
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
         <div>
           <div class="section-title">完成率排名 <span class="line"></span></div>
-          <table><thead><tr><th>#</th><th>负责人</th><th>完成率</th><th>平均进度</th></tr></thead><tbody>
+          <table><thead><tr><th>#</th><th>总战役</th><th>完成率</th><th>平均进度</th></tr></thead><tbody>
             ${d.ranking.map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.name)}</td><td>${r.completionRate}%</td><td>${progressHtml(r.avgProgress)}</td></tr>`).join('') || '<tr><td colspan="4" class="empty">暂无数据</td></tr>'}
           </tbody></table>
         </div>
@@ -246,8 +246,8 @@
       </div>
       <div style="margin-top:20px;">
         <div class="section-title">预警清单 <span class="line"></span></div>
-        <table><thead><tr><th>计划</th><th>级别</th><th>进度</th><th>状态</th><th>原因</th></tr></thead><tbody>
-          ${d.warnings.map((w) => `<tr><td>${esc(w.planName)}</td><td><span class="tag blue">${esc(w.level)}</span></td><td>${w.progress}%</td><td>${lightTag({ _light: w.color })}</td><td style="font-size:12px;color:#8a8f99;">${esc(w.reason)}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">当前无预警 🎉</td></tr>'}
+        <table><thead><tr><th>战役</th><th>计划</th><th>级别</th><th>进度</th><th>状态</th><th>原因</th></tr></thead><tbody>
+          ${d.warnings.map((w) => `<tr><td>${esc(w.subCampaign || w.campaignName || '-')}</td><td>${esc(w.planName)}</td><td><span class="tag blue">${esc(w.level)}</span></td><td>${w.progress}%</td><td>${lightTag({ _light: w.color })}</td><td style="font-size:12px;color:#8a8f99;">${esc(w.reason)}</td></tr>`).join('') || '<tr><td colspan="6" class="empty">当前无预警 🎉</td></tr>'}
         </tbody></table>
       </div>`;
     function progressHtml(v) { return `<div class="trend"><div class="progress"><i style="width:${v}%"></i></div></div>`; }
@@ -271,31 +271,46 @@
           <div style="margin-top:12px;display:flex;gap:8px;align-items:center;">
             <span class="tag blue">${esc(s.status)}</span>${progressBar(s)}
           </div>
+          ${allowed('strategy.edit') ? `<div class="actions" style="margin-top:12px;"><button class="btn p sm" onclick="window.__editStrategy('${s.id}')">修改</button><button class="btn r sm" onclick="window.__deleteStrategy('${s.id}')">删除</button></div>` : ''}
         </div>`).join('') || '<div class="empty" style="grid-column:1/-1;">暂无战略，点击右上角新建</div>'}
       </div>`;
     window.__newStrategy = () => showStrategyModal();
+    window.__editStrategy = (id) => showStrategyModal(list.find((item) => item.id === id));
+    window.__deleteStrategy = async (id) => {
+      const strategy = list.find((item) => item.id === id);
+      if (!strategy || !confirm(`确定删除战略「${strategy.title}」吗？`)) return;
+      try {
+        await req('DELETE', `/strategies/${id}`);
+        toast('战略已删除'); pageStrategies();
+      } catch (e) { toast(e.message, 'red'); }
+    };
   }
 
-  function showStrategyModal() {
-    showModal('新建战略规划', `
+  function showStrategyModal(strategy = null) {
+    const isEdit = Boolean(strategy);
+    showModal(`${isEdit ? '修改' : '新建'}战略规划`, `
       <div class="form">
-        <div class="full"><label>战略名称</label><input id="f-title" /></div>
-        <div><label>商业模式</label><input id="f-mode" placeholder="如：双轮驱动" /></div>
-        <div><label>核心能力</label><input id="f-ability" /></div>
-        <div class="full"><label>战略取舍</label><input id="f-tradeoff" /></div>
-        <div class="full"><label>所属组织</label><select id="f-org">${cache.orgUnits.map((o) => `<option value="${o.id}">${esc(o.name)}</option>`).join('')}</select></div>
+        <div class="full"><label>战略名称</label><input id="f-title" value="${esc(strategy?.title || '')}" /></div>
+        <div><label>商业模式</label><input id="f-mode" placeholder="如：双轮驱动" value="${esc(strategy?.commercialMode || '')}" /></div>
+        <div><label>核心能力</label><input id="f-ability" value="${esc(strategy?.coreAbility || '')}" /></div>
+        <div class="full"><label>战略取舍</label><input id="f-tradeoff" value="${esc(strategy?.strategicTradeoff || '')}" /></div>
+        <div><label>状态</label><select id="f-status">${['执行中','已完成','已暂停'].map((status) => `<option ${strategy?.status === status ? 'selected' : ''}>${status}</option>`).join('')}</select></div>
+        <div><label>进度（%）</label><input id="f-progress" type="number" min="0" max="100" value="${Number(strategy?.progress) || 0}" /></div>
+        <div class="full"><label>所属组织</label><select id="f-org">${cache.orgUnits.map((o) => `<option value="${o.id}" ${strategy?.orgUnitId === o.id ? 'selected' : ''}>${esc(o.name)}</option>`).join('')}</select></div>
         <div class="actions"><button class="btn p" onclick="window.__saveStrategy()">保存</button><button class="btn g" onclick="window.__closeModal()">取消</button></div>
       </div>`);
     window.__saveStrategy = async () => {
       try {
-        await req('POST', '/strategies', {
+        await req(isEdit ? 'PUT' : 'POST', isEdit ? `/strategies/${strategy.id}` : '/strategies', {
           title: document.getElementById('f-title').value,
           commercialMode: document.getElementById('f-mode').value,
           coreAbility: document.getElementById('f-ability').value,
           strategicTradeoff: document.getElementById('f-tradeoff').value,
+          status: document.getElementById('f-status').value,
+          progress: Number(document.getElementById('f-progress').value),
           orgUnitId: document.getElementById('f-org').value,
         });
-        closeModal(); toast('战略已创建'); pageStrategies();
+        closeModal(); toast(isEdit ? '战略已修改' : '战略已创建'); pageStrategies();
       } catch (e) { toast(e.message, 'red'); }
     };
   }
@@ -317,33 +332,50 @@
             <div><b>说明：</b>${esc(c.desc)}</div>
           </div>
           <div style="margin-top:12px;display:flex;gap:8px;align-items:center;"><span class="tag blue">${esc(c.status)}</span>${progressBar(c)}</div>
+          ${allowed('strategy.edit') ? `<div class="actions" style="margin-top:12px;"><button class="btn p sm" onclick="window.__editCampaign('${c.id}')">修改</button><button class="btn r sm" onclick="window.__deleteCampaign('${c.id}')">删除</button></div>` : ''}
         </div>`).join('') || '<div class="empty" style="grid-column:1/-1;">暂无战役</div>'}
       </div>`;
     window.__newCampaign = () => showCampaignModal();
+    window.__editCampaign = (id) => showCampaignModal(list.find((item) => item.id === id));
+    window.__deleteCampaign = async (id) => {
+      const campaign = list.find((item) => item.id === id);
+      if (!campaign || !confirm(`确定删除战役「${campaign.name}」吗？`)) return;
+      try {
+        await req('DELETE', `/campaigns/${id}`);
+        toast('战役已删除'); pageCampaigns();
+      } catch (e) { toast(e.message, 'red'); }
+    };
   }
 
-  function showCampaignModal() {
-    showModal('新建战役', `
+  function showCampaignModal(campaign = null) {
+    const isEdit = Boolean(campaign);
+    showModal(`${isEdit ? '修改' : '新建'}战役`, `
       <div class="form">
-        <div class="full"><label>战役名称</label><input id="f-name" /></div>
-        <div><label>主将</label><select id="f-chief">${userOptions()}</select></div>
-        <div><label>班子（战将）</label><select id="f-cmd">${userOptions()}</select></div>
-        <div><label>周期</label><input id="f-period" placeholder="2026全年" /></div>
-        <div><label>所属组织</label><select id="f-org">${cache.orgUnits.map((o) => `<option value="${o.id}">${esc(o.name)}</option>`).join('')}</select></div>
-        <div class="full"><label>说明</label><input id="f-desc" /></div>
+        <div class="full"><label>战役名称</label><input id="f-name" value="${esc(campaign?.name || '')}" /></div>
+        <div><label>主将</label><select id="f-chief">${userOptions(campaign?.chief)}</select></div>
+        <div><label>责任人姓名</label><input id="f-chief-name" value="${esc(campaign?.chiefName || '')}" placeholder="可填写OA人员姓名" /></div>
+        <div><label>班子（战将）</label><select id="f-cmd">${userOptions(campaign?.commander)}</select></div>
+        <div><label>周期</label><input id="f-period" placeholder="2026全年" value="${esc(campaign?.period || '')}" /></div>
+        <div><label>状态</label><select id="f-status">${['进行中','已完成','已暂停'].map((status) => `<option ${campaign?.status === status ? 'selected' : ''}>${status}</option>`).join('')}</select></div>
+        <div><label>进度（%）</label><input id="f-progress" type="number" min="0" max="100" value="${Number(campaign?.progress) || 0}" /></div>
+        <div><label>所属组织</label><select id="f-org">${cache.orgUnits.map((o) => `<option value="${o.id}" ${campaign?.orgUnitId === o.id ? 'selected' : ''}>${esc(o.name)}</option>`).join('')}</select></div>
+        <div class="full"><label>说明</label><input id="f-desc" value="${esc(campaign?.desc || '')}" /></div>
         <div class="actions"><button class="btn p" onclick="window.__saveCampaign()">保存</button><button class="btn g" onclick="window.__closeModal()">取消</button></div>
       </div>`);
     window.__saveCampaign = async () => {
       try {
-        await req('POST', '/campaigns', {
+        await req(isEdit ? 'PUT' : 'POST', isEdit ? `/campaigns/${campaign.id}` : '/campaigns', {
           name: document.getElementById('f-name').value,
           chief: document.getElementById('f-chief').value,
+          chiefName: document.getElementById('f-chief-name').value,
           commander: document.getElementById('f-cmd').value,
           period: document.getElementById('f-period').value,
+          status: document.getElementById('f-status').value,
+          progress: Number(document.getElementById('f-progress').value),
           orgUnitId: document.getElementById('f-org').value,
           desc: document.getElementById('f-desc').value,
         });
-        closeModal(); toast('战役已创建'); pageCampaigns();
+        closeModal(); toast(isEdit ? '战役已修改' : '战役已创建'); pageCampaigns();
       } catch (e) { toast(e.message, 'red'); }
     };
   }
@@ -793,9 +825,9 @@
     try { const d = await req('GET', '/context'); usersCache = d.users; } catch (e) {}
     return usersCache;
   }
-  function userOptions() {
+  function userOptions(selectedId = '') {
     const us = usersCache;
-    return us.map((u) => `<option value="${u.id}">${esc(u.name)}</option>`).join('');
+    return us.map((u) => `<option value="${u.id}" ${u.id === selectedId ? 'selected' : ''}>${esc(u.name)}</option>`).join('');
   }
   function userName(id) {
     const us = usersCache;
