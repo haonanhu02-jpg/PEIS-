@@ -307,6 +307,9 @@ router.post('/plans', auth, validateTeamWrite, requirePerm('plan.edit'), async (
     progress: Number(b.progress) || 0,
     due: b.due || '',
     completedAt: b.completedAt || '',
+    keyProgress: b.keyProgress || '',
+    varianceReason: b.varianceReason || '',
+    solutionDecision: b.solutionDecision || '',
     status: b.status || '执行中',
     category: b.category || '',
     createdAt: now(),
@@ -352,6 +355,9 @@ router.post('/plans/:id/progress', auth, validateTeamWrite, async (req, res) => 
   const updated = await update('plans', req.params.id, {
     progress: Number(b.progress),
     completedAt: b.completedAt || plan.completedAt || '',
+    keyProgress: b.keyProgress || plan.keyProgress || '',
+    varianceReason: b.varianceReason || plan.varianceReason || '',
+    solutionDecision: b.solutionDecision || plan.solutionDecision || '',
     status: b.status || (Number(b.progress) >= 100 ? '已完成' : plan.status),
   });
   // 记录进度日志
@@ -511,7 +517,23 @@ router.get('/warnings', auth, async (req, res) => {
 });
 router.get('/push-logs', auth, async (req, res) => {
   const teamId = curTeam(req);
-  ok(res, (await all('pushLogs')).filter((p) => !teamId || p.teamId === teamId).slice(-30).reverse());
+  const plans = await all('plans');
+  const logs = (await all('pushLogs')).filter((p) => !teamId || p.teamId === teamId).slice(-30).reverse();
+  ok(res, logs.map((log) => {
+    if (!log.eventKey?.startsWith('due:') || !log.detail) return log;
+    const planId = log.eventKey.split(':')[1];
+    const plan = plans.find((p) => p.id === planId && (!teamId || p.teamId === teamId));
+    if (!plan) return log;
+    return {
+      ...log,
+      detail: {
+        ...log.detail,
+        keyProgress: plan.keyProgress || '-',
+        varianceReason: plan.varianceReason || '-',
+        solutionDecision: plan.solutionDecision || '-',
+      },
+    };
+  }));
 });
 
 // 推送详情：当前团队内所有亮灯为红灯/黄灯的计划，含完整 12 字段 + 命中阶段。

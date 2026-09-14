@@ -247,7 +247,7 @@
       <div style="margin-top:20px;">
         <div class="section-title">预警清单 <span class="line"></span></div>
         <table><thead><tr><th>战役</th><th>计划</th><th>级别</th><th>进度</th><th>状态</th><th>原因</th></tr></thead><tbody>
-          ${d.warnings.map((w) => `<tr><td>${esc(w.subCampaign || w.campaignName || '-')}</td><td>${esc(w.planName)}</td><td><span class="tag blue">${esc(w.level)}</span></td><td>${w.progress}%</td><td>${lightTag({ _light: w.color })}</td><td style="font-size:12px;color:#8a8f99;">${esc(w.reason)}</td></tr>`).join('') || '<tr><td colspan="6" class="empty">当前无预警 🎉</td></tr>'}
+          ${d.warnings.map((w) => `<tr><td><button class="plan-link" onclick="window.__focusPlan('${w.planId}')">${esc(w.subCampaign || w.campaignName || '-')}</button></td><td>${esc(w.planName)}</td><td><span class="tag blue">${esc(w.level)}</span></td><td>${w.progress}%</td><td>${lightTag({ _light: w.color })}</td><td style="font-size:12px;color:#8a8f99;">${esc(w.reason)}</td></tr>`).join('') || '<tr><td colspan="6" class="empty">当前无预警 🎉</td></tr>'}
         </tbody></table>
       </div>`;
     function progressHtml(v) { return `<div class="trend"><div class="progress"><i style="width:${v}%"></i></div></div>`; }
@@ -268,22 +268,10 @@
             <div><b>核心能力：</b>${esc(s.coreAbility)}</div>
             <div><b>战略取舍：</b>${esc(s.strategicTradeoff)}</div>
           </div>
-          <div style="margin-top:12px;display:flex;gap:8px;align-items:center;">
-            <span class="tag blue">${esc(s.status)}</span>${progressBar(s)}
-          </div>
-          ${allowed('strategy.edit') ? `<div class="actions" style="margin-top:12px;"><button class="btn p sm" onclick="window.__editStrategy('${s.id}')">修改</button><button class="btn r sm" onclick="window.__deleteStrategy('${s.id}')">删除</button></div>` : ''}
+          <div style="margin-top:12px;">${progressBar(s)}</div>
         </div>`).join('') || '<div class="empty" style="grid-column:1/-1;">暂无战略，点击右上角新建</div>'}
       </div>`;
     window.__newStrategy = () => showStrategyModal();
-    window.__editStrategy = (id) => showStrategyModal(list.find((item) => item.id === id));
-    window.__deleteStrategy = async (id) => {
-      const strategy = list.find((item) => item.id === id);
-      if (!strategy || !confirm(`确定删除战略「${strategy.title}」吗？`)) return;
-      try {
-        await req('DELETE', `/strategies/${id}`);
-        toast('战略已删除'); pageStrategies();
-      } catch (e) { toast(e.message, 'red'); }
-    };
   }
 
   function showStrategyModal(strategy = null) {
@@ -394,8 +382,9 @@
         <select id="fl-mine" onchange="window.__filterPlans()"><option value="">全部负责人</option><option value="1">我的计划</option></select>
         <button class="btn p sm" style="margin-left:auto;" onclick="window.__newPlan()">+ 新建行动计划</button>
       </div>
-      <div class="table-scroll"><table class="wide-table"><thead><tr><th>必胜战役</th><th>分解战役</th><th>行动计划</th><th>计划分级</th><th>衡量指标</th><th>里程碑事件</th><th>计划完成时间</th><th>实际完成时间</th><th>加权得分</th><th>负责人</th><th>完成度</th><th>完成状态</th><th>亮灯情况</th><th>操作</th></tr></thead>
+      <div class="table-scroll"><table class="wide-table"><thead><tr><th>必胜战役</th><th>分解战役</th><th>行动计划</th><th>计划分级</th><th>衡量指标</th><th>里程碑事件</th><th>计划完成时间</th><th>实际完成时间</th><th>预计得分</th><th>加权得分</th><th>负责人</th><th>完成度</th><th>完成状态</th><th>亮灯情况</th><th>操作</th></tr></thead>
       <tbody id="plan-tbody">${renderPlanRows(plans)}</tbody></table></div>`;
+    revealFocusedPlan();
     window.__filterPlans = async () => {
       const campaignId = document.getElementById('fl-campaign').value;
       const status = document.getElementById('fl-status').value;
@@ -444,15 +433,16 @@
   }
 
   function renderPlanRows(plans) {
-    if (!plans.length) return '<tr><td colspan="14" class="empty">暂无行动计划</td></tr>';
-    return plans.map((p) => `<tr>
+    if (!plans.length) return '<tr><td colspan="15" class="empty">暂无行动计划</td></tr>';
+    return plans.map((p) => `<tr data-plan-id="${p.id}">
       <td style="font-weight:600;min-width:180px;">${esc(campaignName(p))}</td>
       <td style="min-width:145px;">${esc(p.subCampaign || p.name)}</td>
-      <td style="min-width:230px;">${esc(p.name)}</td>
+      <td style="min-width:260px;">${esc(p.name)}${renderLatestProgress(p)}</td>
       <td>${planLevelControl(p)}</td>
       <td style="min-width:200px;">${esc(p.metric || '-')}</td>
       <td style="min-width:220px;">${esc(p.milestone || '-')}</td>
       <td>${esc(p.due || '-')}</td><td>${esc(p.completedAt || '-')}</td>
+      <td title="未乘完成度的计划权重分"><span class="tag gray">${Number(p.weightedScore || 0).toFixed(2)} 分</span></td>
       <td title="权重 ${p.weightedScore || 0} 分 × 完成度 ${Number(p.progress) || 0}%"><span class="tag blue">${Number(p.subScore || 0).toFixed(2)} 分</span></td>
       <td>${esc(p.ownerName || userName(p.owner))}</td>
       <td>${progressBar(p)}</td><td>${completionTag(p)}</td><td>${lightControl(p)}</td>
@@ -461,6 +451,15 @@
         ${allowed('plan.edit') ? `<button class="btn p sm" onclick="window.__editPlan('${p.id}')">修改</button><button class="btn r sm" onclick="window.__deletePlan('${p.id}')">删除</button>` : ''}
       </td>
     </tr>`).join('');
+  }
+
+  function renderLatestProgress(plan) {
+    const items = [
+      plan.keyProgress ? `<div><b>最新进展：</b>${esc(plan.keyProgress)}</div>` : '',
+      plan.varianceReason ? `<div><b>差异原因：</b>${esc(plan.varianceReason)}</div>` : '',
+      plan.solutionDecision ? `<div><b>解决方案：</b>${esc(plan.solutionDecision)}</div>` : '',
+    ].filter(Boolean);
+    return items.length ? `<div class="plan-update">${items.join('')}</div>` : '';
   }
 
   function planLevelLabel(level) {
@@ -560,7 +559,7 @@
     body.innerHTML = `<div class="board">${cols.map((c) => {
       const items = d.plans.filter((p) => p._light === c.key);
       return `<div class="board-col"><h4>${c.title}<span class="cnt">${items.length}</span></h4><div class="body">${items.map((p) => `
-        <div class="task-card ${c.cls}">
+        <div class="task-card ${c.cls} plan-jump-card" role="button" tabindex="0" onclick="window.__focusPlan('${p.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.__focusPlan('${p.id}');}">
           <div class="t">${esc(p.name)}</div>
           <div class="meta"><span class="tag blue">${esc(p.level)}</span><span>${esc(userName(p.owner))}</span></div>
           <div style="margin-top:8px;">${progressBar(p)}</div>
@@ -640,6 +639,7 @@
 
   // ===== 推送详情 =====
   // 显示**已触发推送**的红黄灯计划（读 pushLogs 历史），未推送时页面为空。
+  let pushDetailGroup = 'not-overdue';
   async function pagePushDetails() {
     setPage('推送详情', '已触发推送的红黄灯计划完整内容');
     activeNav('push-details');
@@ -658,6 +658,12 @@
     }
     const reds = logs.filter((x) => x.color === 'red');
     const yellows = logs.filter((x) => x.color === 'yellow');
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const isOverdue = (log) => /^\d{4}-\d{2}-\d{2}$/.test(log.detail?.due || '') && log.detail.due < today;
+    const overdueLogs = logs.filter(isOverdue);
+    const pendingLogs = logs.filter((log) => !isOverdue(log));
+    const visibleLogs = pushDetailGroup === 'overdue' ? overdueLogs : pendingLogs;
     const fields = [
       ['campaignName', '必胜战役'],
       ['subCampaign', '分解战役'],
@@ -672,8 +678,14 @@
       ['status', '完成状态'],
       ['light', '亮灯情况'],
     ];
+    const progressFields = [
+      ['keyProgress', '关键进展'],
+      ['varianceReason', '差异原因'],
+      ['solutionDecision', '解决方案建议/决策点'],
+    ];
     const renderCard = (log, idx) => {
       const it = log.detail || {};
+      const cardFields = pushDetailGroup === 'overdue' ? [...fields, ...progressFields] : fields;
       const light = log.color || it.light || 'red';
       const lightColor = light === 'red' ? '#dc2626' : '#d97706';
       const lightBg = light === 'red' ? '#fef2f2' : '#fffbeb';
@@ -697,7 +709,7 @@
           <div style="font-size:11px;color:var(--gray-700);">#${idx + 1}</div>
         </div>
         <div class="pd-grid">
-          ${fields.map(([k, label]) => {
+          ${cardFields.map(([k, label]) => {
             let v = it[k];
             if (k === 'progress' && typeof v === 'number') v = `${v}%`;
             const isLight = k === 'light';
@@ -716,10 +728,18 @@
         <span class="tag yellow">🟡 黄灯 ${yellows.length}</span>
         <button class="btn g sm" onclick="window.__runPushNow()">立即触发推送</button>
       </div>
-      ${logs.length === 0
-        ? `<div class="empty">暂无推送记录<br><span style="font-size:12px;color:var(--gray-500);">请先在「运行节奏」点「检查」,或点上方「立即触发推送」后再来查看</span></div>`
-        : logs.map(renderCard).join('')}
+      <div class="pd-groups" style="display:flex;gap:8px;margin-bottom:14px;">
+        <button class="btn sm ${pushDetailGroup === 'not-overdue' ? 'p' : 'g'}" onclick="window.__switchPushGroup('not-overdue')">未逾期 ${pendingLogs.length}</button>
+        <button class="btn sm ${pushDetailGroup === 'overdue' ? 'p' : 'g'}" onclick="window.__switchPushGroup('overdue')">已逾期 ${overdueLogs.length}</button>
+      </div>
+      ${visibleLogs.length === 0
+        ? `<div class="empty">暂无${pushDetailGroup === 'overdue' ? '已逾期' : '未逾期'}推送记录<br><span style="font-size:12px;color:var(--gray-500);">请先在「运行节奏」点「检查」，或点上方「立即触发推送」后再来查看</span></div>`
+        : visibleLogs.map(renderCard).join('')}
     `;
+    window.__switchPushGroup = (group) => {
+      pushDetailGroup = group === 'overdue' ? 'overdue' : 'not-overdue';
+      pagePushDetails();
+    };
     // 自带触发逻辑，不依赖 pageCycles 里定义的 __runCycle（避免未访问运行节奏页时按钮失效）
     window.__runPushNow = async () => {
       try {
@@ -837,6 +857,26 @@
   // userName 同步 fallback（种子用户）
   const seedNames = { u_1: '系统管理员', u_2: '陈总', u_3: '张文明', u_4: '王新平', u_5: '李明月', u_6: '赵辉' };
   function userNameSync(id) { return seedNames[id] || id; }
+
+  function focusPlan(planId) {
+    sessionStorage.setItem('peis_focus_plan', planId);
+    if (location.hash === '#/plans') pagePlans();
+    else location.hash = '#/plans';
+  }
+  window.__focusPlan = focusPlan;
+
+  function revealFocusedPlan() {
+    const planId = sessionStorage.getItem('peis_focus_plan');
+    if (!planId) return;
+    requestAnimationFrame(() => {
+      const row = document.querySelector(`[data-plan-id="${CSS.escape(planId)}"]`);
+      if (!row) return;
+      sessionStorage.removeItem('peis_focus_plan');
+      row.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+      row.classList.add('plan-focus');
+      setTimeout(() => row.classList.remove('plan-focus'), 2600);
+    });
+  }
 
   // ===== 路由 =====
   const routes = {

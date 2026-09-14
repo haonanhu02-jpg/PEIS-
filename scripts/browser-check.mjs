@@ -17,7 +17,7 @@ try {
     await page.locator('.btn-primary').click();
     await page.waitForSelector('#page-body');
     assert.equal(await page.locator('#team-select option').count(), expectedTeams > 1 ? expectedTeams : 0);
-    for (const route of ['dashboard', 'strategies', 'campaigns', 'plans', 'board', 'meetings', 'cycles', 'rewards', 'warnings', 'org']) {
+    for (const route of ['dashboard', 'strategies', 'campaigns', 'plans', 'board', 'meetings', 'cycles', 'push-details', 'rewards', 'warnings', 'org']) {
       await page.goto(`http://127.0.0.1:9280/#/${route}`);
       await page.reload({ waitUntil: 'networkidle' });
       assert.ok(!(await page.locator('#page-body').innerText()).includes('加载失败'), `${username} ${route}`);
@@ -27,14 +27,24 @@ try {
         assert.equal(await page.locator(`.nav-item[data-route="${route}"]`).count(), 0);
       }
     }
+    await page.goto('http://127.0.0.1:9280/#/push-details');
+    await page.reload({ waitUntil: 'networkidle' });
+    assert.ok(await page.getByRole('button', { name: /未逾期/ }).count() > 0);
+    assert.ok(await page.getByRole('button', { name: /已逾期/ }).count() > 0);
+    await page.getByRole('button', { name: /已逾期/ }).click();
+    await page.waitForFunction(() => document.querySelector('#page-body')?.innerText.includes('暂无已逾期推送记录') || document.querySelector('#page-body')?.innerText.includes('关键进展'));
+    const overdueText = await page.locator('#page-body').innerText();
+    if (!overdueText.includes('暂无已逾期推送记录')) {
+      assert.ok(overdueText.includes('关键进展'));
+      assert.ok(overdueText.includes('差异原因'));
+      assert.ok(overdueText.includes('解决方案建议/决策点'));
+    }
     if (username === 'admin') {
       await page.goto('http://127.0.0.1:9280/#/strategies');
       await page.reload({ waitUntil: 'networkidle' });
-      assert.ok(await page.getByRole('button', { name: '修改' }).count() > 0);
-      assert.ok(await page.getByRole('button', { name: '删除' }).count() > 0);
-      await page.getByRole('button', { name: '修改' }).first().click();
-      assert.ok((await page.locator('.modal-h').innerText()).includes('修改战略规划'));
-      await page.getByRole('button', { name: '取消', exact: true }).click();
+      assert.equal(await page.getByRole('button', { name: '修改' }).count(), 0);
+      assert.equal(await page.getByRole('button', { name: '删除' }).count(), 0);
+      assert.ok(!(await page.locator('#page-body').innerText()).includes('执行中'));
       await page.goto('http://127.0.0.1:9280/#/campaigns');
       await page.reload({ waitUntil: 'networkidle' });
       assert.ok(await page.getByRole('button', { name: '修改' }).count() > 0);
@@ -47,6 +57,14 @@ try {
       const dashboardText = await page.locator('#page-body').innerText();
       assert.ok(dashboardText.includes('总战役'));
       assert.ok(await page.getByRole('columnheader', { name: '战役', exact: true }).count() > 0);
+      await page.locator('.plan-link').first().click();
+      await page.waitForURL(/#\/plans$/);
+      await page.locator('tr.plan-focus').waitFor();
+      await page.goto('http://127.0.0.1:9280/#/board');
+      await page.reload({ waitUntil: 'networkidle' });
+      await page.locator('.plan-jump-card').first().click();
+      await page.waitForURL(/#\/plans$/);
+      await page.locator('tr.plan-focus').waitFor();
       await page.locator('#team-select').selectOption('t_2');
       await page.waitForLoadState('networkidle');
       assert.equal(await page.locator('#team-select').inputValue(), 't_2');
@@ -56,6 +74,7 @@ try {
     const content = await page.locator('#page-body').innerText();
     assert.ok(content.includes('计划分级'));
     assert.ok(content.includes('实际完成时间'));
+    assert.ok(content.includes('预计得分'));
     assert.ok(content.includes('加权得分'));
     assert.ok(content.includes('涂料订单交付验收'));
     assert.ok(!content.includes('明确降本方案落地'));

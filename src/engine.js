@@ -237,6 +237,9 @@ export function buildPlanDetail(plan, campaign, light, lightReason, phase) {
     ownerName: plan.ownerName || plan.collector || '-',               // 负责人
     progress: `${progress}%`,                                        // 完成度
     status: statusText,                                               // 完成状态
+    keyProgress: plan.keyProgress || '-',                             // 关键进展
+    varianceReason: plan.varianceReason || '-',                       // 差异原因
+    solutionDecision: plan.solutionDecision || '-',                   // 解决方案建议/决策点
     light: light || '-',                                              // 亮灯情况
     lightReason: lightReason || '-',                                  // 亮灯原因
     phase: phase || '-',                                              // 命中阶段（节点提醒用）

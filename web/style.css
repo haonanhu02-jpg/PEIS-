@@ -117,6 +117,17 @@ a { color: var(--primary); text-decoration:none; }
 .card .num.yellow { color: var(--yellow); }
 .card .num.red { color: var(--red); }
 .card .sub { font-size: 12px; color: var(--gray-500); margin-top: 6px; }
+.plan-link { border:0; background:none; padding:0; color:var(--primary); font:inherit; cursor:pointer; text-align:left; }
+.plan-link:hover { text-decoration:underline; }
+.plan-update { margin-top:7px; padding:7px 9px; border-left:2px solid var(--primary); background:var(--primary-light); color:var(--gray-700); font-size:12px; line-height:1.65; }
+.plan-jump-card { cursor:pointer; }
+.plan-jump-card:hover { transform:translateY(-1px); box-shadow:0 4px 14px rgba(30,64,175,.12); }
+.plan-jump-card:focus-visible { outline:2px solid var(--primary); outline-offset:2px; }
+tr.plan-focus > td { animation:plan-focus-pulse 2.6s ease-out; }
+@keyframes plan-focus-pulse {
+  0%,35% { background:#dbeafe; }
+  100% { background:transparent; }
+}
 .section-title { font-size: 16px; font-weight: 600; margin: 8px 0 16px; display:flex; align-items:center; gap:10px; }
 .section-title .line { flex:1; height:1px; background: var(--gray-300); }
 
