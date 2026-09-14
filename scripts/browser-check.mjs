@@ -31,6 +31,12 @@ try {
     await page.reload({ waitUntil: 'networkidle' });
     assert.ok(await page.getByRole('button', { name: /未逾期/ }).count() > 0);
     assert.ok(await page.getByRole('button', { name: /已逾期/ }).count() > 0);
+    const pendingText = await page.locator('#page-body').innerText();
+    if (!pendingText.includes('暂无未逾期推送记录')) {
+      assert.ok(pendingText.includes('逾期剩余时间'));
+      assert.ok(!pendingText.includes('完成状态'));
+      assert.ok(!pendingText.includes('亮灯原因'));
+    }
     await page.getByRole('button', { name: /已逾期/ }).click();
     await page.waitForFunction(() => document.querySelector('#page-body')?.innerText.includes('暂无已逾期推送记录') || document.querySelector('#page-body')?.innerText.includes('关键进展'));
     const overdueText = await page.locator('#page-body').innerText();
@@ -88,8 +94,14 @@ try {
     assert.deepEqual(await page.locator('#f-level option').allTextContents(), ['里程碑计划', '1级计划', '2级计划', '3级计划', '4级计划']);
     assert.deepEqual(await page.locator('#f-level option').evaluateAll(options => options.map(option => option.value)), ['里程碑计划', '1级计划', '2级计划', '3级计划', '4级计划']);
     await page.getByRole('button', { name: '取消', exact: true }).click();
-    await page.getByRole('button', { name: '更新进度' }).first().click();
+    const progressButton = page.getByRole('button', { name: /^(更新进度|更改进度更新)$/ }).first();
+    const progressButtonName = await progressButton.innerText();
+    await progressButton.click();
     assert.equal(await page.locator('#f-completed-at').getAttribute('type'), 'date');
+    if (progressButtonName === '更改进度更新') {
+      assert.ok((await page.locator('#f-key').inputValue()) || (await page.locator('#f-variance').inputValue()) || (await page.locator('#f-solution').inputValue()));
+      assert.ok(await page.getByRole('button', { name: '保存更改' }).count() > 0);
+    }
     await page.getByRole('button', { name: '取消', exact: true }).click();
     await page.screenshot({ path: `artifacts/${username}-plans.png`, fullPage: true });
     await context.close();

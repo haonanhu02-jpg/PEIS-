@@ -447,7 +447,7 @@
       <td>${esc(p.ownerName || userName(p.owner))}</td>
       <td>${progressBar(p)}</td><td>${completionTag(p)}</td><td>${lightControl(p)}</td>
       <td>
-        <button class="btn g sm" onclick="window.__updProgress('${p.id}')">更新进度</button>
+        <button class="btn g sm" onclick="window.__updProgress('${p.id}')">${p.keyProgress || p.varianceReason || p.solutionDecision ? '更改进度更新' : '更新进度'}</button>
         ${allowed('plan.edit') ? `<button class="btn p sm" onclick="window.__editPlan('${p.id}')">修改</button><button class="btn r sm" onclick="window.__deletePlan('${p.id}')">删除</button>` : ''}
       </td>
     </tr>`).join('');
@@ -527,12 +527,12 @@
     const plan = cache.plans.find(p => p.id === id) || {};
     showModal('战役计划的进度更新', `
       <div class="form">
-        <div class="full"><label>关键进展</label><textarea id="f-key" rows="3"></textarea></div>
+        <div class="full"><label>关键进展</label><textarea id="f-key" rows="3">${esc(plan.keyProgress || '')}</textarea></div>
         <div><label>完成度（%）</label><input id="f-prog" type="number" min="0" max="100" value="${Number(plan.progress) || 0}" /></div>
         <div><label>完成时间</label><input id="f-completed-at" type="date" value="${esc(plan.completedAt || '')}" /><div class="field-tip">填写实际完成日期，用于判断按时完成或延误</div></div>
-        <div class="full"><label>差异原因</label><textarea id="f-variance" rows="3"></textarea></div>
-        <div class="full"><label>解决方案建议/决策点</label><textarea id="f-solution" rows="3"></textarea></div>
-        <div class="actions"><button class="btn p" onclick="window.__saveProgress('${id}')">提交</button><button class="btn g" onclick="window.__closeModal()">取消</button></div>
+        <div class="full"><label>差异原因</label><textarea id="f-variance" rows="3">${esc(plan.varianceReason || '')}</textarea></div>
+        <div class="full"><label>解决方案建议/决策点</label><textarea id="f-solution" rows="3">${esc(plan.solutionDecision || '')}</textarea></div>
+        <div class="actions"><button class="btn p" onclick="window.__saveProgress('${id}')">${plan.keyProgress || plan.varianceReason || plan.solutionDecision ? '保存更改' : '提交'}</button><button class="btn g" onclick="window.__closeModal()">取消</button></div>
       </div>`);
     window.__saveProgress = async (id) => {
       try {
@@ -664,16 +664,15 @@
     const overdueLogs = logs.filter(isOverdue);
     const pendingLogs = logs.filter((log) => !isOverdue(log));
     const visibleLogs = pushDetailGroup === 'overdue' ? overdueLogs : pendingLogs;
-    const fields = [
-      ['campaignName', '必胜战役'],
-      ['subCampaign', '分解战役'],
-      ['planName', '行动计划'],
+    const detailFields = [
       ['level', '计划分级'],
       ['metric', '衡量指标'],
       ['milestone', '里程碑事件'],
       ['due', '计划完成时间'],
       ['completedAt', '实际完成时间'],
-      ['ownerName', '负责人'],
+    ];
+    const overdueFields = [
+      ...detailFields,
       ['progress', '完成度'],
       ['status', '完成状态'],
       ['light', '亮灯情况'],
@@ -685,28 +684,27 @@
     ];
     const renderCard = (log, idx) => {
       const it = log.detail || {};
-      const cardFields = pushDetailGroup === 'overdue' ? [...fields, ...progressFields] : fields;
+      const overdue = pushDetailGroup === 'overdue';
+      const cardFields = overdue ? [...overdueFields, ...progressFields] : detailFields;
       const light = log.color || it.light || 'red';
-      const lightColor = light === 'red' ? '#dc2626' : '#d97706';
-      const lightBg = light === 'red' ? '#fef2f2' : '#fffbeb';
+      const lightColor = overdue ? (light === 'red' ? '#dc2626' : '#d97706') : '#2563eb';
+      const lightBg = overdue ? (light === 'red' ? '#fef2f2' : '#fffbeb') : '#eff6ff';
       const lightLabel = light === 'red' ? '🔴 红灯' : '🟡 黄灯';
       const phaseTag = it.phase && it.phase !== '-' ? `<span class="tag blue">${esc(it.phase)}</span>` : '';
       const pushTime = (log.at || '').slice(0, 19).replace('T', ' ');
+      const dueTime = /^\d{4}-\d{2}-\d{2}$/.test(it.due || '') ? new Date(`${it.due}T00:00:00`) : null;
+      const todayTime = new Date(`${today}T00:00:00`);
+      const remainingDays = dueTime ? Math.max(0, Math.ceil((dueTime - todayTime) / 86400000)) : null;
       return `<div class="pd-card" style="border-left:3px solid ${lightColor};">
         <div class="pd-head" style="background:${lightBg};">
-          <div>
-            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-              <span class="pd-light" style="color:${lightColor};background:#fff;">${lightLabel}</span>
-              <strong style="font-size:15px;">${esc(it.planName || '-')}</strong>
-              ${phaseTag}
-              <span class="tag gray" style="font-size:11px;">推送于 ${esc(pushTime)}</span>
-            </div>
-            <div style="margin-top:6px;font-size:12px;color:var(--gray-700);">
-              ${esc(it.campaignName)} / ${esc(it.subCampaign)} · 负责人 ${esc(it.ownerName)}
-              · 接收：${esc((log.toUserIds || []).join('、') || '-')}
-            </div>
+          <div class="pd-summary">
+            <div><span>必胜战役</span><strong>${esc(it.campaignName || '-')}</strong></div>
+            <div><span>分解</span><strong>${esc(it.subCampaign || '-')}</strong></div>
+            <div><span>计划</span><strong>${esc(it.planName || '-')}</strong></div>
+            <div><span>负责人</span><strong>${esc(it.ownerName || '-')}</strong></div>
+            <div class="pd-meta">${overdue ? `<span class="pd-light" style="color:${lightColor};background:#fff;">${lightLabel}</span>` : ''}${phaseTag}<span class="tag gray">推送于 ${esc(pushTime)}</span><span>接收：${esc((log.toUserIds || []).join('、') || '-')}</span></div>
           </div>
-          <div style="font-size:11px;color:var(--gray-700);">#${idx + 1}</div>
+          ${!overdue && remainingDays !== null ? `<div class="pd-remaining"><span>逾期剩余时间</span><strong>${remainingDays}</strong><span>天</span></div>` : `<div style="font-size:11px;color:var(--gray-700);">#${idx + 1}</div>`}
         </div>
         <div class="pd-grid">
           ${cardFields.map(([k, label]) => {
@@ -718,7 +716,7 @@
               : esc(v || '-');
             return `<div class="pd-cell"><div class="pd-label">${label}</div><div class="pd-val">${tag}</div></div>`;
           }).join('')}
-          ${it.lightReason && it.lightReason !== '-' ? `<div class="pd-cell" style="grid-column:span 3;"><div class="pd-label">亮灯原因</div><div class="pd-val" style="color:${lightColor};">${esc(it.lightReason)}</div></div>` : ''}
+          ${overdue && it.lightReason && it.lightReason !== '-' ? `<div class="pd-cell" style="grid-column:span 3;"><div class="pd-label">亮灯原因</div><div class="pd-val" style="color:${lightColor};">${esc(it.lightReason)}</div></div>` : ''}
         </div>
       </div>`;
     };
