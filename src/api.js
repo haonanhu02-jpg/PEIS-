@@ -348,17 +348,18 @@ router.delete('/plans/:id', auth, validateTeamWrite, requirePerm('plan.edit'), a
 // 进度更新（PEIS系统：人为定期更新进度 -> 自动计算排名/红黄灯/推送）
 router.post('/plans/:id/progress', auth, validateTeamWrite, async (req, res) => {
   const b = body(req);
+  const supplied = (key) => Object.prototype.hasOwnProperty.call(b, key);
   const plan = await findOne('plans', (p) => p.id === req.params.id);
   if (!plan) return fail(res, '未找到', 404);
   if (!await authorizePlanUpdate(req, res, plan)) return;
   if (b.completedAt && !/^\d{4}-\d{2}-\d{2}$/.test(b.completedAt)) return fail(res, '完成时间格式无效', 400);
   const updated = await update('plans', req.params.id, {
     progress: Number(b.progress),
-    completedAt: b.completedAt || plan.completedAt || '',
-    keyProgress: b.keyProgress || plan.keyProgress || '',
-    varianceReason: b.varianceReason || plan.varianceReason || '',
-    solutionDecision: b.solutionDecision || plan.solutionDecision || '',
-    status: b.status || (Number(b.progress) >= 100 ? '已完成' : plan.status),
+    completedAt: supplied('completedAt') ? String(b.completedAt || '') : (plan.completedAt || ''),
+    keyProgress: supplied('keyProgress') ? String(b.keyProgress || '') : (plan.keyProgress || ''),
+    varianceReason: supplied('varianceReason') ? String(b.varianceReason || '') : (plan.varianceReason || ''),
+    solutionDecision: supplied('solutionDecision') ? String(b.solutionDecision || '') : (plan.solutionDecision || ''),
+    status: b.status || (Number(b.progress) >= 100 ? '已完成' : (plan.status === '已完成' ? '执行中' : plan.status)),
   });
   // 记录进度日志
   await insert('progressLogs', {
