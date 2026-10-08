@@ -225,7 +225,13 @@ router.delete('/strategies/:id', auth, validateTeamWrite, requirePerm('strategy.
 router.get('/campaigns', auth, requirePerm('strategy.view'), async (req, res) => {
   const teamId = curTeam(req);
   const scope = await orgScope(req.user, teamId);
-  ok(res, (await all('campaigns')).filter((c) => (teamId ? c.teamId === teamId : true) && scope.includes(c.orgUnitId)));
+  const campaigns = (await all('campaigns')).filter((c) => (teamId ? c.teamId === teamId : true) && scope.includes(c.orgUnitId));
+  const scoreByCampaign = new Map((await computeScoreRanking(teamId)).map((item) => [item.id, item.totalScore]));
+  ok(res, campaigns.map((campaign) => ({
+    ...campaign,
+    progress: scoreByCampaign.get(campaign.id) || 0,
+    progressSource: 'plans',
+  })));
 });
 // 行动计划表单使用的最小战役选项，计划负责人也可读取。
 router.get('/campaign-options', auth, async (req, res) => {

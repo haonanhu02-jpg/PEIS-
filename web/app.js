@@ -345,7 +345,7 @@
         <div><label>班子（战将）</label><select id="f-cmd">${userOptions(campaign?.commander)}</select></div>
         <div><label>周期</label><input id="f-period" placeholder="2026全年" value="${esc(campaign?.period || '')}" /></div>
         <div><label>状态</label><select id="f-status">${['进行中','已完成','已暂停'].map((status) => `<option ${campaign?.status === status ? 'selected' : ''}>${status}</option>`).join('')}</select></div>
-        <div><label>进度（%）</label><input id="f-progress" type="number" min="0" max="100" value="${Number(campaign?.progress) || 0}" /></div>
+        <div><label>进度（自动汇总）</label><input id="f-progress" type="number" min="0" max="100" value="${Number(campaign?.progress) || 0}" disabled /><div class="field-tip">根据该战役下行动计划的加权得分自动计算</div></div>
         <div><label>所属组织</label><select id="f-org">${cache.orgUnits.map((o) => `<option value="${o.id}" ${campaign?.orgUnitId === o.id ? 'selected' : ''}>${esc(o.name)}</option>`).join('')}</select></div>
         <div class="full"><label>说明</label><input id="f-desc" value="${esc(campaign?.desc || '')}" /></div>
         <div class="actions"><button class="btn p" onclick="window.__saveCampaign()">保存</button><button class="btn g" onclick="window.__closeModal()">取消</button></div>
@@ -359,7 +359,6 @@
           commander: document.getElementById('f-cmd').value,
           period: document.getElementById('f-period').value,
           status: document.getElementById('f-status').value,
-          progress: Number(document.getElementById('f-progress').value),
           orgUnitId: document.getElementById('f-org').value,
           desc: document.getElementById('f-desc').value,
         });
