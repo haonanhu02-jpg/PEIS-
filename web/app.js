@@ -382,7 +382,7 @@
         <select id="fl-mine" onchange="window.__filterPlans()"><option value="">全部负责人</option><option value="1">我的计划</option></select>
         <button class="btn p sm" style="margin-left:auto;" onclick="window.__newPlan()">+ 新建行动计划</button>
       </div>
-      <div class="table-scroll"><table class="wide-table"><thead><tr><th>必胜战役</th><th>分解战役</th><th>行动计划</th><th>计划分级</th><th>衡量指标</th><th>里程碑事件</th><th>计划完成时间</th><th>实际完成时间</th><th>预计得分</th><th>加权得分</th><th>负责人</th><th>完成度</th><th>完成状态</th><th>亮灯情况</th><th>操作</th></tr></thead>
+      <div class="table-scroll plan-table-scroll"><table class="wide-table plan-table"><thead><tr><th>必胜战役</th><th>分解战役</th><th>行动计划</th><th>计划分级</th><th>衡量指标</th><th>里程碑事件</th><th>计划完成时间</th><th>实际完成时间</th><th>预计得分</th><th>加权得分</th><th>负责人</th><th>完成度</th><th>完成状态</th><th>亮灯情况</th><th>操作</th></tr></thead>
       <tbody id="plan-tbody">${renderPlanRows(plans)}</tbody></table></div>`;
     revealFocusedPlan();
     window.__filterPlans = async () => {

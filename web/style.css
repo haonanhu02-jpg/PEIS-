@@ -230,7 +230,23 @@ tr:hover td { background: #fafbfc; }
 .sidebar-brand span { font-size:13px; opacity:.82; }
 .table-scroll { overflow-x:auto; padding-bottom:4px; }
 .wide-table { min-width:1450px; }
+.plan-table { border-collapse:separate; border-spacing:0; overflow:visible; }
 .wide-table td { vertical-align:top; line-height:1.55; }
+.plan-table th:last-child,
+.plan-table td:last-child {
+  position:sticky;
+  right:0;
+  z-index:3;
+  min-width:108px;
+  width:108px;
+  background:#fff;
+  border-left:1px solid var(--gray-200);
+  box-shadow:-8px 0 12px -12px rgba(15,23,42,.65);
+}
+.plan-table th:last-child { z-index:4; background:var(--gray-100); }
+.plan-table tr:hover td:last-child { background:#fafbfc; }
+.plan-table td:last-child .btn { display:block; width:100%; margin:0 0 6px; white-space:nowrap; }
+.plan-table td:last-child .btn:last-child { margin-bottom:0; }
 .field-tip { margin-top:5px; color:var(--gray-500); font-size:11px; }
 .level-select { min-width:132px; padding:7px 8px; border:1px solid var(--gray-300); border-radius:6px; background:#fff; color:var(--gray-700); }
 .light-select { min-width:90px; padding:5px 8px; border:1px solid var(--gray-300); border-radius:6px; background:#fff; color:var(--gray-700); font-size:12px; }

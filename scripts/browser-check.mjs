@@ -85,6 +85,9 @@ try {
     assert.ok(content.includes('涂料订单交付验收'));
     assert.ok(!content.includes('明确降本方案落地'));
     assert.ok(content.includes('李明月'));
+    const tableBox = await page.locator('.plan-table-scroll').boundingBox();
+    const actionBox = await page.locator('.plan-table th:last-child').boundingBox();
+    assert.ok(tableBox && actionBox && actionBox.x + actionBox.width <= tableBox.x + tableBox.width + 2, `操作列应固定显示在表格右侧: ${JSON.stringify({ tableBox, actionBox })}`);
     if (username === 'admin' || username === 'limf') {
       assert.deepEqual(await page.locator('.level-select').first().locator('option').allTextContents(), ['请选择计划分级', '里程碑计划', '1级计划', '2级计划', '3级计划', '4级计划']);
     }
