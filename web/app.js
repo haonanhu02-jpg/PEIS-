@@ -3,7 +3,9 @@
   'use strict';
 
   const API = '/api';
-  let token = localStorage.getItem('peis_token') || '';
+  // 登录仅在当前浏览器会话内有效；移除旧版本保存的长期令牌。
+  localStorage.removeItem('peis_token');
+  let token = sessionStorage.getItem('peis_token') || '';
   let me = null;
   let teams = [];
   let activeTeamId = localStorage.getItem('peis_team') || '';
@@ -47,8 +49,8 @@
             <div class="sub">万盛股份 · 计划效率 Implementation System</div>
           </div>
           <div class="login-form">
-            <div class="field"><label>账号</label><input id="lg-user" placeholder="请输入账号" value="admin" /></div>
-            <div class="field"><label>密码</label><input id="lg-pass" type="password" placeholder="请输入密码" value="admin123" /></div>
+            <div class="field"><label>账号</label><input id="lg-user" placeholder="请输入账号" autocomplete="username" /></div>
+            <div class="field"><label>密码</label><input id="lg-pass" type="password" placeholder="请输入密码" autocomplete="current-password" /></div>
             <button class="btn-primary" onclick="window.__login()">登 录</button>
           </div>
           <div class="login-divider">或通过企业账号登录</div>
@@ -56,10 +58,6 @@
             <button class="sso-btn" onclick="window.__oaSso()">OA 单点登录</button>
             <button class="sso-btn dd" onclick="window.__pushOpen('dingtalk')">钉钉打开</button>
             <button class="sso-btn zx" onclick="window.__pushOpen('zixin')">致信打开</button>
-          </div>
-          <div class="login-tip">
-            演示账号：<b>admin/admin123</b>（超级管理员）<br />
-            <b>ceo/ceo123</b> · <b>zhangwm/123456</b> · <b>limf/123456</b>
           </div>
         </div>
       </div>`;
@@ -70,7 +68,7 @@
         const d = await req('POST', '/auth/login', { username, password });
         token = d.token; me = d.user; teams = d.teams || [];
         activeTeamId = teams[0] ? teams[0].id : '';
-        localStorage.setItem('peis_token', token);
+        sessionStorage.setItem('peis_token', token);
         localStorage.setItem('peis_team', activeTeamId);
         location.hash = '#/dashboard';
       } catch (e) { toast('登录失败：' + e.message, 'red'); }
@@ -80,7 +78,7 @@
         const d = await req('POST', '/auth/oa-sso', { oaToken: 'demo-oa-token', oaId: 'OA-0001', username: 'admin' });
         token = d.token; me = d.user; teams = d.teams || [];
         activeTeamId = teams[0] ? teams[0].id : '';
-        localStorage.setItem('peis_token', token);
+        sessionStorage.setItem('peis_token', token);
         localStorage.setItem('peis_team', activeTeamId);
         toast('OA 单点登录成功'); location.hash = '#/dashboard';
       } catch (e) { toast('OA 登录失败：' + e.message, 'red'); }
@@ -91,7 +89,7 @@
         const d = await req('POST', '/auth/push-open', { ...id, pushToken: 'demo' });
         token = d.token; me = d.user; teams = d.teams || [];
         activeTeamId = teams[0] ? teams[0].id : '';
-        localStorage.setItem('peis_token', token);
+        sessionStorage.setItem('peis_token', token);
         localStorage.setItem('peis_team', activeTeamId);
         toast('从' + (ch === 'dingtalk' ? '钉钉' : '致信') + '消息打开成功'); location.hash = '#/dashboard';
       } catch (e) { toast('打开失败：' + e.message, 'red'); }
@@ -146,7 +144,7 @@
         </div>
       </div>`;
     window.__go = (r) => { location.hash = '#/' + r; };
-    window.__logout = () => { token = ''; me = null; teams = []; activeTeamId = ''; localStorage.removeItem('peis_token'); localStorage.removeItem('peis_team'); location.hash = '#/login'; };
+    window.__logout = () => { token = ''; me = null; teams = []; activeTeamId = ''; sessionStorage.removeItem('peis_token'); localStorage.removeItem('peis_token'); localStorage.removeItem('peis_team'); location.hash = '#/login'; };
     window.__switchTeam = (id) => {
       activeTeamId = id;
       localStorage.setItem('peis_team', id);
@@ -892,7 +890,16 @@
 
   async function router() {
     const hash = location.hash.replace(/^#\/?/, '');
-    if (hash === 'login' || !token) { renderLogin(); return; }
+    if (hash === 'login') {
+      token = '';
+      me = null;
+      teams = [];
+      sessionStorage.removeItem('peis_token');
+      localStorage.removeItem('peis_token');
+      renderLogin();
+      return;
+    }
+    if (!token) { renderLogin(); return; }
     if (!me || !me.permissions) {
       try {
         const d = await req('GET', '/me');
@@ -900,7 +907,7 @@
         teams = d.teams || [];
         if (!teams.some((t) => t.id === activeTeamId)) activeTeamId = teams[0] ? teams[0].id : '';
         localStorage.setItem('peis_team', activeTeamId);
-      } catch (e) { token = ''; localStorage.removeItem('peis_token'); localStorage.removeItem('peis_team'); renderLogin(); return; }
+      } catch (e) { token = ''; sessionStorage.removeItem('peis_token'); localStorage.removeItem('peis_token'); localStorage.removeItem('peis_team'); renderLogin(); return; }
     }
     renderLayout();
     if (!allowed(routePerms[hash])) {

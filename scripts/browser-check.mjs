@@ -12,10 +12,21 @@ try {
     page.on('pageerror', e => errors.push(`${username}: ${e.message}`));
     page.on('response', r => { if (r.url().includes('/api/') && r.status() >= 400) errors.push(`${username}: ${r.status()} ${r.url()}`); });
     await page.goto('http://127.0.0.1:9280/#/');
+    assert.equal(await page.locator('#lg-user').inputValue(), '');
+    assert.equal(await page.locator('#lg-pass').inputValue(), '');
+    assert.equal(await page.getByRole('button', { name: 'OA 单点登录' }).count(), 1);
+    assert.equal(await page.getByRole('button', { name: '钉钉打开' }).count(), 1);
+    assert.equal(await page.getByRole('button', { name: '致信打开' }).count(), 1);
     await page.locator('#lg-user').fill(username);
     await page.locator('#lg-pass').fill(password);
     await page.locator('.btn-primary').click();
     await page.waitForSelector('#page-body');
+    await page.reload({ waitUntil: 'networkidle' });
+    assert.equal(await page.locator('#lg-user').count(), 0, `${username}: 当前会话刷新后应保持登录`);
+    const freshPage = await context.newPage();
+    await freshPage.goto('http://127.0.0.1:9280/#/');
+    assert.equal(await freshPage.locator('#lg-user').count(), 1, `${username}: 新页面会话必须重新登录`);
+    await freshPage.close();
     assert.equal(await page.locator('#team-select option').count(), expectedTeams > 1 ? expectedTeams : 0);
     for (const route of ['dashboard', 'strategies', 'campaigns', 'plans', 'board', 'meetings', 'cycles', 'push-details', 'rewards', 'warnings', 'org']) {
       await page.goto(`http://127.0.0.1:9280/#/${route}`);
@@ -107,6 +118,9 @@ try {
     }
     await page.getByRole('button', { name: '取消', exact: true }).click();
     await page.screenshot({ path: `artifacts/${username}-plans.png`, fullPage: true });
+    await page.goto('http://127.0.0.1:9280/#/login');
+    assert.equal(await page.locator('#lg-user').count(), 1, `${username}: OA登录地址必须强制显示登录页`);
+    assert.equal(await page.evaluate(() => sessionStorage.getItem('peis_token')), null, `${username}: 强制登录页应清除当前会话令牌`);
     await context.close();
   }
   assert.deepEqual(errors, []);
