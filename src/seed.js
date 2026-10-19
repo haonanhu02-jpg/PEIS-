@@ -186,7 +186,7 @@ export async function seedIfEmpty() {
 
 const SCREENSHOT_CAMPAIGNS = [
   { id: 'cm_2025_1', teamId: 't_1', orgUnitId: 'ou_1', strategyId: 's_1', name: '潍坊产能释放及发展规划', chiefName: '曹海滨', status: '进行中' },
-  { id: 'cm_2025_2', teamId: 't_1', orgUnitId: 'ou_1', strategyId: 's_1', name: '新项目全生命周期管理体系建设及业务规模突破（落地）', chiefName: '成耿宇/李旭锋', status: '进行中' },
+  { id: 'cm_2025_2', teamId: 't_1', orgUnitId: 'ou_1', strategyId: 's_1', name: '新项目全生命周期管理体系建设及业务规模突破（落地）', chiefName: '成畋宇/李旭锋', status: '进行中' },
   { id: 'cm_2025_3', teamId: 't_1', orgUnitId: 'ou_1', strategyId: 's_1', name: '销售目标达成（预算+存量），及技术支持与服务保障', chiefName: '高正炎', status: '进行中' },
   { id: 'cm_2025_4', teamId: 't_1', orgUnitId: 'ou_1', strategyId: 's_1', name: '泰国基地建设与运营', chiefName: '海金春', status: '进行中',
     desc: '战役总目标：完成工程建设，实现投产运营；衡量指标：6.10日前投产；完成TCPP/TDCP XX吨生产目标；实现XX万人民币的利润。' },
@@ -213,6 +213,7 @@ export async function migrateScreenshotContent() {
   const version = 'screenshot-template-v3';
   // 修正已初始化数据库中的历史错别字，避免只修改种子数据后线上仍显示旧值。
   await raw().query("UPDATE campaigns SET chiefName = '曹海滨' WHERE chiefName = '曹海宾'");
+  await raw().query("UPDATE campaigns SET chiefName = REPLACE(chiefName, '成耿宇', '成畋宇') WHERE chiefName LIKE '%成耿宇%'");
   // 计划分级使用完整业务名称；兼容并迁移旧版简称。
   for (const table of ['plans', 'planLevels', 'rewards']) {
     await raw().query(`UPDATE \`${table}\` SET level = CASE level
